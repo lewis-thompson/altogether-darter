@@ -4,6 +4,7 @@ import {
   HomePage,
   CreateGamePage,
   KillerPage,
+  GameCompletePage,
   SavedGamesPage,
   StatisticsPage,
 } from './pages'
@@ -14,6 +15,7 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/create-game" element={<CreateGamePage />} />
       <Route path="/killer" element={<KillerPage />} />
+      <Route path="/game-complete" element={<GameCompletePage />} />
       <Route path="/saved-games" element={<SavedGamesPage />} />
       <Route path="/statistics" element={<StatisticsPage />} />
     </Routes>
