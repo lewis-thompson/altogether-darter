@@ -316,12 +316,13 @@ export function KillerPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const state = location.state as GameState | null
-  const playerListRef = useRef<HTMLUListElement | null>(null)
-  const playerCardRefs = useRef<Record<number, HTMLLIElement | null>>({})
+  const playerListRef = useRef<HTMLDivElement | null>(null)
+  const playerCardRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
   const [currentRound, setCurrentRound] = useState(1)
   const [selectedModifier, setSelectedModifier] = useState<'double' | 'treble' | null>(null)
   const [currentHits, setCurrentHits] = useState<string[]>([])
+  const [scoreComponentCollapsed, setScoreComponentCollapsed] = useState(false)
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
     state?.players?.reduce(
       (acc, player) => ({ ...acc, [player.id]: [] }),
@@ -727,35 +728,54 @@ export function KillerPage() {
 
   return (
     <PageLayout title="Killer">
-      <section className="game-header">
-        <div className="summary-row">
-          <strong>Round</strong>
-          <span>{currentRound}</span>
-        </div>
-        <div className="summary-row">
-          <strong>Current player</strong>
-          <span>{player.name}</span>
-        </div>
-        <div className="summary-row buyback-summary-row">
-          <div>
-            <strong>Bullseye buyback</strong>
-            <span>{state.bullseyeBuyback ? (buybackActive ? `${state.bullseyeRounds ?? 0} rounds` : 'Off') : 'Disabled'}</span>
+      <section className={`killer-game-header${state.bullseyeBuyback ? ' with-buyback' : ''}`}>
+        <Link to="/" className="header-home-button" title="Home">
+          ← Home
+        </Link>
+        <div className="header-row">
+          <div className="header-info">
+            <div className="header-title">Killer</div>
+            <div className="header-stat">
+              <span className="stat-label">Threshold:</span>
+              <span className="stat-value">{threshold}</span>
+            </div>
           </div>
-          {state.bullseyeBuyback ? (
-            <button type="button" className="page-button secondary" onClick={toggleBuybackActive}>
-              {buybackActive ? 'Turn buyback off' : 'Turn buyback on'}
-            </button>
-          ) : null}
+          <div className="header-divider"></div>
+          <div className="header-info">
+            <div className="header-label">Current Player</div>
+            <div className="header-title">{player.name}</div>
+          </div>
+          <div className="header-divider"></div>
+          <div className="header-info">
+            <div className="header-label">Round</div>
+            <div className="header-title">{currentRound}</div>
+          </div>
         </div>
+        {state.bullseyeBuyback && (
+          <div className="header-row">
+            <div className="header-info">
+              <div className="header-label">Bullseye Buyback</div>
+              <div className="header-stat">
+                <span>{buybackActive ? `${state.bullseyeRounds ?? 0} rounds` : 'Off'}</span>
+              </div>
+            </div>
+            <button 
+              type="button" 
+              className="header-toggle-button" 
+              onClick={toggleBuybackActive}
+              title={buybackActive ? 'Turn off buyback' : 'Turn on buyback'}
+            >
+              Disable
+            </button>
+          </div>
+        )}
       </section>
 
-      <section className="players-section">
-        <h2>Players</h2>
-        <ul className="players-list player-box-list" ref={playerListRef}>
+      <div className="killer-players-list" ref={playerListRef}>
           {players.map((playerItem, index) => {
             const status = playerStatus[playerItem.id]
             return (
-              <li
+              <div
                 key={playerItem.id}
                 ref={(element) => {
                   playerCardRefs.current[playerItem.id] = element
@@ -786,40 +806,51 @@ export function KillerPage() {
                   </span>
                 </div>
                 {isKiller(playerItem.id) ? <div className="player-card-killer">Killer</div> : null}
-              </li>
+              </div>
             )
           })}
-        </ul>
-      </section>
+        </div>
 
-      <section className="modifier-row">
+      <section className={`score-input-section${scoreComponentCollapsed ? ' collapsed' : ''}`}>
         <button
+          className="score-component-header"
+          onClick={() => setScoreComponentCollapsed(!scoreComponentCollapsed)}
           type="button"
-          className={`modifier-button${selectedModifier === 'double' ? ' selected' : ''}`}
-          onClick={() => toggleModifier('double')}
-          disabled={currentHits.length >= 3 || currentPlayerStatus === 'dead'}
         >
-          Double
+          <span>Score input</span>
+          <span className="collapse-indicator">{scoreComponentCollapsed ? '▼' : '▲'}</span>
         </button>
-        <button
-          type="button"
-          className={`modifier-button${selectedModifier === 'treble' ? ' selected' : ''}`}
-          onClick={() => toggleModifier('treble')}
-          disabled={currentHits.length >= 3 || currentPlayerStatus === 'dead'}
-        >
-          Treble
-        </button>
-        <button
-          type="button"
-          className="modifier-button"
-          onClick={removeLastHit}
-          disabled={hitStack.length === 0}
-        >
-          Back
-        </button>
-      </section>
 
-      <section className="score-buttons">
+        {!scoreComponentCollapsed && (
+          <>
+            <section className="modifier-row">
+              <button
+                type="button"
+                className={`modifier-button${selectedModifier === 'double' ? ' selected' : ''}`}
+                onClick={() => toggleModifier('double')}
+                disabled={currentHits.length >= 3 || currentPlayerStatus === 'dead'}
+              >
+                Double
+              </button>
+              <button
+                type="button"
+                className={`modifier-button${selectedModifier === 'treble' ? ' selected' : ''}`}
+                onClick={() => toggleModifier('treble')}
+                disabled={currentHits.length >= 3 || currentPlayerStatus === 'dead'}
+              >
+                Treble
+              </button>
+              <button
+                type="button"
+                className="modifier-button"
+                onClick={removeLastHit}
+                disabled={hitStack.length === 0}
+              >
+                Back
+              </button>
+            </section>
+
+            <section className="score-buttons">
         {scoreButtons.map((value) => {
           const isBull = value === 'bull'
           const isMiss = value === 'miss'
@@ -842,6 +873,9 @@ export function KillerPage() {
             </button>
           )
         })}
+            </section>
+          </>
+        )}
       </section>
     </PageLayout>
   )
