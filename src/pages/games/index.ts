@@ -1,0 +1,8 @@
+export { X01Page } from './X01Page'
+export { AroundTheWorldPage } from './AroundTheWorldPage'
+export { CricketPage } from './CricketPage'
+export { EveryNumberPage } from './EveryNumberPage'
+export { ScoreKillerPage } from './ScoreKillerPage'
+export { DoublesPage } from './DoublesPage'
+export { ShanghaiPage } from './ShanghaiPage'
+export { SplitscorerPage } from './SplitscorerPage'
