@@ -379,7 +379,7 @@ export function KillerPage() {
   useEffect(() => {
     const currentPlayer = players[currentPlayerIndex]
     const card = currentPlayer && playerCardRefs.current[currentPlayer.id]
-    card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    card?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [currentPlayerIndex, players])
 
   useEffect(() => {
