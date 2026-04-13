@@ -172,6 +172,18 @@ export function X01Page({ players, startingScore }: X01Props) {
         }}
       />
 
+      {/* Display legs won for each player */}
+      <div style={{ marginBottom: '20px'  }}>
+        <h3 style={{ marginBottom: '12px' }}>Legs Won</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+          {players.map((player) => (
+            <div key={player.id} style={{ padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+              <strong>{player.name}:</strong> {legsWon[player.id] || 0}
+            </div>
+          ))}
+        </div>
+      </div>
+
       <ScoreComponent
         onAddScore={addHit}
         onRemoveLastHit={removeLastHit}

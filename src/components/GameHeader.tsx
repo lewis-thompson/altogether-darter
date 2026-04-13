@@ -8,6 +8,8 @@ interface GameHeaderProps {
   bullseyeBuyback?: boolean
   bullseyeRoundsLeft?: number | null
   onToggleBuyback?: () => void
+  // Generic header stats for any game
+  headerStats?: Array<{ label: string; value: string | number }>
 }
 
 export function GameHeader({
@@ -18,6 +20,7 @@ export function GameHeader({
   bullseyeBuyback,
   bullseyeRoundsLeft,
   onToggleBuyback,
+  headerStats,
 }: GameHeaderProps) {
   return (
     <section className="killer-game-header" data-testid="game-header">
@@ -33,6 +36,12 @@ export function GameHeader({
               <span className="stat-value">{threshold}</span>
             </div>
           )}
+          {headerStats?.map((stat) => (
+            <div key={stat.label} className="header-stat">
+              <span className="stat-label">{stat.label}:</span>
+              <span className="stat-value">{stat.value}</span>
+            </div>
+          ))}
         </div>
         <div className="header-divider"></div>
         <div className="header-info">

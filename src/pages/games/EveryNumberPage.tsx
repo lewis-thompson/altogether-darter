@@ -181,6 +181,9 @@ export function EveryNumberPage({ players }: EveryNumberProps) {
         gameType="Every Number"
         currentPlayerName={currentPlayer.name}
         round={currentRound}
+        headerStats={[
+          { label: 'Hits per number', value: hitsPerNumber }
+        ]}
       />
 
       <PlayerSection
@@ -193,6 +196,39 @@ export function EveryNumberPage({ players }: EveryNumberProps) {
           playerCardRefs.current[playerId] = element
         }}
       />
+
+      {/* Display number hits for each player */}
+      <div style={{ marginBottom: '20px', padding: '12px', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>
+        <h3 style={{ marginBottom: '12px' }}>Number Progress</h3>
+        {players.map((player) => (
+          <div key={player.id} style={{ marginBottom: '16px', padding: '8px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #eee' }}>
+            <strong>{player.name}</strong>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))', gap: '4px', marginTop: '8px' }}>
+              {allNumbers.map((num) => {
+                const hits = playerNumberHits[player.id]?.[num] || 0
+                const isComplete = hits >= hitsPerNumber
+                return (
+                  <div
+                    key={num}
+                    style={{
+                      padding: '8px',
+                      backgroundColor: isComplete ? '#d4edda' : '#f0f0f0',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      textAlign: 'center',
+                      fontSize: '0.9em',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {num === 0 ? 'B' : num}<br/>
+                    <span style={{ fontSize: '0.8em' }}>{hits}/{hitsPerNumber}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
 
       <ScoreComponent
         onAddScore={addHit}

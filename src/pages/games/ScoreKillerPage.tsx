@@ -32,6 +32,9 @@ export function ScoreKillerPage({ players, killerThreshold }: ScoreKillerProps) 
   const [playerLives, setPlayerLives] = useState<Record<number, number>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: 3 }), {})
   )
+  const [playerKills, setPlayerKills] = useState<Record<number, number>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
+  )
   const [lastVisitScore, setLastVisitScore] = useState(0)
   const [visitScore, setVisitScore] = useState(0)
 
@@ -92,6 +95,10 @@ export function ScoreKillerPage({ players, killerThreshold }: ScoreKillerProps) 
         if (!meetsThreshold && lastVisitScore > 0) {
           // Lose a life
           newLives[currentPlayer.id] = (newLives[currentPlayer.id] || 0) - 1
+          // Track kill for the player with lastVisitScore (the killer)
+          const previousPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+          const prevPlayer = players[previousPlayerIndex]
+          setPlayerKills(prev => ({ ...prev, [prevPlayer.id]: (prev[prevPlayer.id] || 0) + 1 }))
         }
 
         newScores[currentPlayer.id] = (newScores[currentPlayer.id] || 0) + visitScore
@@ -130,6 +137,9 @@ export function ScoreKillerPage({ players, killerThreshold }: ScoreKillerProps) 
 
         if (!meetsThreshold && lastVisitScore > 0) {
           newLives[currentPlayer.id] = (newLives[currentPlayer.id] || 0) - 1
+          const previousPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+          const prevPlayer = players[previousPlayerIndex]
+          setPlayerKills(prev => ({ ...prev, [prevPlayer.id]: (prev[prevPlayer.id] || 0) + 1 }))
         }
 
         const totalScore = visitScore + points
@@ -174,6 +184,9 @@ export function ScoreKillerPage({ players, killerThreshold }: ScoreKillerProps) 
 
       if (!meetsThreshold && lastVisitScore > 0) {
         newLives[currentPlayer.id] = (newLives[currentPlayer.id] || 0) - 1
+        const previousPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+        const prevPlayer = players[previousPlayerIndex]
+        setPlayerKills(prev => ({ ...prev, [prevPlayer.id]: (prev[prevPlayer.id] || 0) + 1 }))
       }
 
       newScores[currentPlayer.id] = (newScores[currentPlayer.id] || 0) + totalVisitScore
@@ -224,6 +237,8 @@ export function ScoreKillerPage({ players, killerThreshold }: ScoreKillerProps) 
         playerHits={playerHits}
         playerPoints={Object.fromEntries(Object.entries(playerScores).map(([k, v]) => [k, String(v)]))}
         playerStatus={playerStatus}
+        playerLives={playerLives}
+        playerKills={playerKills}
         onPlayerRef={(playerId, element) => {
           playerCardRefs.current[playerId] = element
         }}

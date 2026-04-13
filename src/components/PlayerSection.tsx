@@ -7,6 +7,8 @@ interface PlayerSectionProps {
   playerPoints: Record<number, string>
   playerStatus: Record<number, PlayerStatus>
   killerThreshold?: number
+  playerLives?: Record<number, number>
+  playerKills?: Record<number, number>
   onPlayerRef?: (playerId: number, element: HTMLDivElement | null) => void
 }
 
@@ -17,6 +19,8 @@ export function PlayerSection({
   playerPoints,
   playerStatus,
   killerThreshold,
+  playerLives,
+  playerKills,
   onPlayerRef,
 }: PlayerSectionProps) {
   const isKiller = (playerId: number) =>
@@ -52,6 +56,18 @@ export function PlayerSection({
               <strong>Points</strong>
               <span>{points}</span>
             </div>
+            {playerLives !== undefined && playerKills !== undefined ? (
+              <>
+                <div className="player-card-row">
+                  <strong>Lives</strong>
+                  <span>{playerLives[player.id] ?? 0}</span>
+                </div>
+                <div className="player-card-row">
+                  <strong>Kills</strong>
+                  <span>{playerKills[player.id] ?? 0}</span>
+                </div>
+              </>
+            ) : null}
             <div className="player-card-row player-card-status">
               <span>
                 {status === 'alive'
