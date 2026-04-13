@@ -1,10 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks'
 import { GameHeader, PlayerSection, ScoreComponent, PageLayout } from '../../components'
-import { createGame, addGamePlayer, updateGamePlayerScore } from '../../services'
-import { saveX01GameState } from '../../services/gameStates'
-import { Player, PlayerStatus } from '../../types'
+import type { Player, PlayerStatus } from '../../types'
 
 interface X01Props {
   players: Player[]
@@ -13,52 +10,139 @@ interface X01Props {
 
 export function X01Page({ players, startingScore }: X01Props) {
   const { user } = useAuth()
-  const navigate = useNavigate()
-  const playerListRef = useRef<HTMLDivElement | null>(null)
   const playerCardRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
-  // Game state
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
   const [currentRound, setCurrentRound] = useState(1)
   const [selectedModifier, setSelectedModifier] = useState<'double' | 'treble' | null>(null)
   const [currentHits, setCurrentHits] = useState<string[]>([])
 
-  // Player state tracking
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
   )
   const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: startingScore }), {})
   )
-  const [playerStatus, setPlayerStatus] = useState<Record<number, PlayerStatus>>(() =>
+  const [playerStatus] = useState<Record<number, PlayerStatus>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: 'alive' as PlayerStatus }), {})
+  )
+
+  const [visitStartScore, setVisitStartScore] = useState(startingScore)
+  const [legsWon, setLegsWon] = useState<Record<number, number>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
   )
 
   const currentPlayer = players[currentPlayerIndex]
   const currentPlayerStatus = playerStatus[currentPlayer?.id]
+  const currentScore = playerScores[currentPlayer.id] ?? startingScore
 
-  // Scroll to current player
   useEffect(() => {
     const currentCard = currentPlayer && playerCardRefs.current[currentPlayer.id]
     currentCard?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [currentPlayerIndex, currentPlayer])
 
-  // TODO: Implement game logic here
+  function getHitValue(target: 'miss' | 'bull' | number, modifier: 'double' | 'treble' | null): number {
+    if (target === 'miss') return 0
+    if (target === 'bull') return modifier === 'double' ? 50 : 25
+    if (modifier === 'double') return (target as number) * 2
+    if (modifier === 'treble') return (target as number) * 3
+    return target as number
+  }
+
+  function formatHit(target: 'miss' | 'bull' | number, modifier: 'double' | 'treble' | null): string {
+    if (target === 'miss') return 'M'
+    if (target === 'bull') return modifier === 'double' ? 'DB' : 'SB'
+    if (modifier === 'double') return `D${target}`
+    if (modifier === 'treble') return `T${target}`
+    return String(target)
+  }
+
   function addHit(target: 'miss' | 'bull' | number) {
-    // Implement X01 scoring logic
-    // 1. Format the hit (D20, T15, etc based on modifier)
-    // 2. Calculate points for this hit
-    // 3. Subtract from player's current score
-    // 4. If player reaches exactly 0 with last dart as double → wins
-    // 5. If busts (goes below 0) → lose turn, revert score
-    // 6. Update player score and move to next player
-    // 7. Save to Firestore
-    console.log('X01: Add hit', target)
+    if (currentHits.length >= 3) return
+    if (currentScore <= 1) return // Already bust
+
+    const hitValue = getHitValue(target, selectedModifier)
+    const hitStr = formatHit(target, selectedModifier)
+    const newScore = currentScore - hitValue
+    let finished = false
+    let isBust = false
+
+    // Check for valid finish
+    if (newScore === 0 && selectedModifier === 'double') {
+      // Winner!
+      finished = true
+    } else if (newScore < 0 || (newScore === 1)) {
+      // Bust - revert to start of visit score
+      isBust = true
+    }
+
+    const newHits = [...currentHits, hitStr]
+    setCurrentHits(newHits)
+    setSelectedModifier(null)
+
+    if (!isBust) {
+      setPlayerScores({
+        ...playerScores,
+        [currentPlayer.id]: newScore,
+      })
+    }
+
+    if (finished) {
+      // Player won the leg!
+      const newLegsWon = { ...legsWon }
+      newLegsWon[currentPlayer.id] = (newLegsWon[currentPlayer.id] || 0) + 1
+
+      setPlayerHits({
+        ...playerHits,
+        [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
+      })
+      setCurrentHits([])
+      setPlayerScores({
+        ...playerScores,
+        [currentPlayer.id]: startingScore, // Reset for next leg
+      })
+      setLegsWon(newLegsWon)
+      setVisitStartScore(startingScore)
+
+      // For now, just reset and next player
+      const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
+      if (nextPlayerIndex === 0) {
+        setCurrentRound((r) => r + 1)
+      }
+      setCurrentPlayerIndex(nextPlayerIndex)
+      return
+    }
+
+    if (currentHits.length === 2 || isBust) {
+      // End of visit
+      if (isBust) {
+        // Revert score to start of visit
+        setPlayerScores({
+          ...playerScores,
+          [currentPlayer.id]: visitStartScore,
+        })
+      }
+
+      setPlayerHits({
+        ...playerHits,
+        [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
+      })
+      setCurrentHits([])
+      setVisitStartScore(isBust ? visitStartScore : newScore)
+
+      // Move to next player
+      const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
+      if (nextPlayerIndex === 0) {
+        setCurrentRound((r) => r + 1)
+      }
+      setCurrentPlayerIndex(nextPlayerIndex)
+    }
   }
 
   function removeLastHit() {
-    // Implement undo logic
-    console.log('X01: Remove last hit')
+    if (currentHits.length > 0) {
+      setCurrentHits(currentHits.slice(0, -1))
+    }
   }
 
   function toggleModifier(modifier: 'double' | 'treble') {

@@ -26,7 +26,6 @@ export function ScoreComponent({
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   const scoreButtons = [...numbers, 'bull' as const, 'miss' as const]
-  const isMiss = currentHits.some((h) => h === 'M')
 
   return (
     <section className={`score-input-section${isCollapsed ? ' collapsed' : ''}`}>

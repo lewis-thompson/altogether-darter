@@ -6,13 +6,10 @@ import {
   getDocs,
   addDoc,
   updateDoc,
-  deleteDoc,
-  query,
-  where,
   Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import {
+import type {
   User,
   FirestorePlayer,
   FirestoreGame,
@@ -52,7 +49,7 @@ export async function createPlayer(userId: string, name: string): Promise<string
   const docRef = await addDoc(playersRef, {
     name,
     createdAt: Timestamp.now(),
-  } as FirestorePlayer)
+  } as unknown as FirestorePlayer)
   return docRef.id
 }
 
@@ -81,7 +78,7 @@ export async function createGame(
     type: gameType,
     savedAt: Timestamp.now(),
     status,
-  } as FirestoreGame)
+  } as unknown as FirestoreGame)
   return docRef.id
 }
 

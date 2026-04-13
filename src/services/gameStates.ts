@@ -1,6 +1,6 @@
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from './firebase'
-import {
+import type {
   X01GameState,
   AroundTheWorldGameState,
   CricketGameState,

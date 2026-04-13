@@ -2,9 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks'
 import { GameHeader, PlayerSection, ScoreComponent, PageLayout } from '../../components'
-import { createGame, addGamePlayer, updateGamePlayerScore } from '../../services'
-import { saveAroundTheWorldGameState } from '../../services/gameStates'
-import { Player, PlayerStatus } from '../../types'
+import type { Player, PlayerStatus } from '../../types'
 
 interface AroundTheWorldProps {
   players: Player[]
@@ -13,7 +11,6 @@ interface AroundTheWorldProps {
 export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const playerListRef = useRef<HTMLDivElement | null>(null)
   const playerCardRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
@@ -27,7 +24,7 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
   const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
   )
-  const [playerStatus, setPlayerStatus] = useState<Record<number, PlayerStatus>>(() =>
+  const [playerStatus] = useState<Record<number, PlayerStatus>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: 'alive' as PlayerStatus }), {})
   )
 
@@ -39,18 +36,110 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
     currentCard?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [currentPlayerIndex, currentPlayer])
 
-  // TODO: Implement game logic here
+  function getCurrentSegment(score: number): number | string {
+    if (score <= 20) return score
+    if (score === 21) return 'OB' // Outer bull
+    return 'B' // Inner bull (bullseye)
+  }
+
   function addHit(target: 'miss' | 'bull' | number) {
-    // Implement Around The World scoring logic
-    // 1. Progress through numbers 1-20, then bull
-    // 2. Player needs to hit current segment (single, double, or treble counts)
-    // 3. Once hit, move to next number
-    // 4. First to hit all numbers wins
-    console.log('Around The World: Add hit', target)
+    if (currentHits.length >= 3) return
+    const currentScore = playerScores[currentPlayer.id] || 0
+    const darts = currentHits.length
+
+    // Check if hit matches current target
+    const targetSegment = getCurrentSegment(currentScore)
+    let hitMatches = false
+
+    if (target === 'bull') {
+      hitMatches = targetSegment === 'OB' || targetSegment === 'B'
+    } else if (typeof targetSegment === 'number' && target === targetSegment) {
+      hitMatches = true
+    }
+
+    if (hitMatches) {
+      // Determine how many segments to advance based on dart type
+      let segmentsAdvanced = 1 // Single hit advances 1
+      if (selectedModifier === 'double') segmentsAdvanced = 2
+      if (selectedModifier === 'treble') segmentsAdvanced = 3
+
+      const newScore = currentScore + segmentsAdvanced
+      const newHits = [...currentHits, String(target)]
+      setCurrentHits(newHits)
+      setSelectedModifier(null)
+
+      if (darts === 2) {
+        // End of visit
+        setPlayerScores({
+          ...playerScores,
+          [currentPlayer.id]: newScore,
+        })
+        setPlayerHits({
+          ...playerHits,
+          [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
+        })
+        setCurrentHits([])
+
+        // Check if won
+        if (newScore >= 22) {
+          // Game won!
+          navigate('/game-complete', {
+            state: {
+              winner: currentPlayer,
+              winnerPoints: newScore,
+              totalPlayers: players.length,
+              totalRounds: currentRound,
+              totalAttempts: Object.values(playerHits).flat().length + newHits.length,
+              totalHits: newHits.filter((h) => h !== 'miss').length,
+              totalMisses: newHits.filter((h) => h === 'miss').length,
+              bullseyeBuybackEnabled: false,
+              bullseyeRounds: null,
+            },
+          })
+          return
+        }
+
+        // Move to next player
+        const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
+        if (nextPlayerIndex === 0) {
+          setCurrentRound((r) => r + 1)
+        }
+        setCurrentPlayerIndex(nextPlayerIndex)
+      } else {
+        // Can throw again in same visit
+        setPlayerScores({
+          ...playerScores,
+          [currentPlayer.id]: newScore,
+        })
+      }
+    } else {
+      // Missed the target
+      const newHits = [...currentHits, 'M']
+      setCurrentHits(newHits)
+      setSelectedModifier(null)
+
+      if (darts === 2) {
+        // End of visit
+        setPlayerHits({
+          ...playerHits,
+          [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
+        })
+        setCurrentHits([])
+
+        // Move to next player
+        const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
+        if (nextPlayerIndex === 0) {
+          setCurrentRound((r) => r + 1)
+        }
+        setCurrentPlayerIndex(nextPlayerIndex)
+      }
+    }
   }
 
   function removeLastHit() {
-    console.log('Around The World: Remove last hit')
+    if (currentHits.length > 0) {
+      setCurrentHits(currentHits.slice(0, -1))
+    }
   }
 
   function toggleModifier(modifier: 'double' | 'treble') {

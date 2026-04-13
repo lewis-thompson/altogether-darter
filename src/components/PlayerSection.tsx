@@ -1,4 +1,4 @@
-import { Player, PlayerStatus } from '../types'
+import type { Player, PlayerStatus } from '../types'
 
 interface PlayerSectionProps {
   players: Player[]

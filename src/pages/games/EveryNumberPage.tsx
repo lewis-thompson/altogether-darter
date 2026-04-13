@@ -2,8 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks'
 import { GameHeader, PlayerSection, ScoreComponent, PageLayout } from '../../components'
-import { saveEveryNumberGameState } from '../../services/gameStates'
-import { Player, PlayerStatus } from '../../types'
+import type { Player, PlayerStatus } from '../../types'
 
 interface EveryNumberProps {
   players: Player[]
@@ -19,14 +18,37 @@ export function EveryNumberPage({ players }: EveryNumberProps) {
   const [selectedModifier, setSelectedModifier] = useState<'double' | 'treble' | null>(null)
   const [currentHits, setCurrentHits] = useState<string[]>([])
 
+  const numbers = [...Array(20).keys()].map((i) => i + 1)
+  const hitsPerNumber = 3 // Default - can be parameterized
+  const includeBullseye = true
+  const allNumbers = includeBullseye ? [...numbers, 0] : numbers // 0 represents bull
+
+  const [playerNumberHits, setPlayerNumberHits] = useState<Record<number, Record<number | string, number>>>(() =>
+    players.reduce((acc, player) => {
+      acc[player.id] = {}
+      allNumbers.forEach((n) => {
+        acc[player.id][n] = 0
+      })
+      return acc
+    }, {} as Record<number, Record<number | string, number>>)
+  )
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
-    players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
+    players.reduce((acc, player) => {
+      acc[player.id] = []
+      return acc
+    }, {} as Record<number, string[]>)
   )
   const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
-    players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
+    players.reduce((acc, player) => {
+      acc[player.id] = 0
+      return acc
+    }, {} as Record<number, number>)
   )
-  const [playerStatus, setPlayerStatus] = useState<Record<number, PlayerStatus>>(() =>
-    players.reduce((acc, player) => ({ ...acc, [player.id]: 'alive' as PlayerStatus }), {})
+  const [playerStatus] = useState<Record<number, PlayerStatus>>(() =>
+    players.reduce((acc, player) => {
+      acc[player.id] = 'alive' as PlayerStatus
+      return acc
+    }, {} as Record<number, PlayerStatus>)
   )
 
   const currentPlayer = players[currentPlayerIndex]
@@ -37,16 +59,112 @@ export function EveryNumberPage({ players }: EveryNumberProps) {
     currentCard?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [currentPlayerIndex, currentPlayer])
 
+  function checkGameComplete(): boolean {
+    return players.some((player) =>
+      allNumbers.every((num) => (playerNumberHits[player.id][num] || 0) >= hitsPerNumber)
+    )
+  }
+
+  function getPointsForHit(modifier: 'double' | 'treble' | null): number {
+    if (modifier === 'double') return 2
+    if (modifier === 'treble') return 3
+    return 1
+  }
+
   function addHit(target: 'miss' | 'bull' | number) {
-    // TODO: Implement Every Number scoring logic
-    // Players must hit every number 1-20 plus bull
-    // Can be hit in any area (single, double, treble)
-    // First to hit all wins
-    console.log('Every Number: Add hit', target)
+    if (currentHits.length >= 3) return
+    if (target === 'miss') {
+      setCurrentHits([...currentHits, 'M'])
+      setSelectedModifier(null)
+
+      if (currentHits.length === 2) {
+        // End of visit
+        setPlayerHits({
+          ...playerHits,
+          [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...currentHits, 'M'],
+        })
+        setCurrentHits([])
+
+        // Move to next player
+        const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
+        if (nextPlayerIndex === 0) {
+          setCurrentRound((r) => r + 1)
+        }
+        setCurrentPlayerIndex(nextPlayerIndex)
+      }
+      return
+    }
+
+    const targetNum = target === 'bull' ? 0 : target
+    const hitPoints = getPointsForHit(selectedModifier)
+    const hitStr = target === 'bull' ? (selectedModifier === 'double' ? 'DB' : 'SB') : `${selectedModifier === 'double' ? 'D' : selectedModifier === 'treble' ? 'T' : ''}${target}`
+
+    // Update number hit count
+    const newPlayerNumberHits = { ...playerNumberHits }
+    newPlayerNumberHits[currentPlayer.id] = { ...newPlayerNumberHits[currentPlayer.id] }
+    newPlayerNumberHits[currentPlayer.id][targetNum] = (newPlayerNumberHits[currentPlayer.id][targetNum] || 0) + hitPoints
+
+    setPlayerNumberHits(newPlayerNumberHits)
+
+    // Update scores
+    const newScore = allNumbers.reduce((sum, num) => {
+      const hits = newPlayerNumberHits[currentPlayer.id][num] || 0
+      if (hits >= hitsPerNumber) return sum + hitsPerNumber
+      return sum + hits
+    }, 0)
+
+    setPlayerScores({
+      ...playerScores,
+      [currentPlayer.id]: newScore,
+    })
+
+    setCurrentHits([...currentHits, hitStr])
+    setSelectedModifier(null)
+
+    if (currentHits.length === 2) {
+      // End of visit
+      const newHits = [...currentHits, hitStr]
+      setPlayerHits({
+        ...playerHits,
+        [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
+      })
+
+      // Check if game complete
+      if (checkGameComplete()) {
+        const winner = players.reduce((best, p) =>
+          (playerScores[p.id] || 0) > (playerScores[best.id] || 0) ? p : best
+        )
+        navigate('/game-complete', {
+          state: {
+            winner,
+            winnerPoints: playerScores[winner.id] || 0,
+            totalPlayers: players.length,
+            totalRounds: currentRound,
+            totalAttempts: Object.values(playerHits).flat().length + newHits.length,
+            totalHits: newHits.filter((h) => h !== 'M').length,
+            totalMisses: newHits.filter((h) => h === 'M').length,
+            bullseyeBuybackEnabled: false,
+            bullseyeRounds: null,
+          },
+        })
+        return
+      }
+
+      setCurrentHits([])
+
+      // Move to next player
+      const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
+      if (nextPlayerIndex === 0) {
+        setCurrentRound((r) => r + 1)
+      }
+      setCurrentPlayerIndex(nextPlayerIndex)
+    }
   }
 
   function removeLastHit() {
-    console.log('Every Number: Remove last hit')
+    if (currentHits.length > 0) {
+      setCurrentHits(currentHits.slice(0, -1))
+    }
   }
 
   function toggleModifier(modifier: 'double' | 'treble') {

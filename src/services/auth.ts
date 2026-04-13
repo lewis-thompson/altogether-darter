@@ -8,15 +8,31 @@ import {
   type User as FirebaseUser,
 } from 'firebase/auth'
 import { auth } from './firebase'
-import { User } from '../types'
+import type { User } from '../types'
 
 const googleProvider = new GoogleAuthProvider()
+
+// Development mode - set to true to bypass authentication
+const DEV_MODE = import.meta.env.DEV && !import.meta.env.PROD
+
+// Mock user for development
+const MOCK_DEV_USER: User = {
+  uid: 'dev-user-123',
+  displayName: 'Dev User',
+  email: 'dev@localhost',
+  createdAt: new Date(),
+}
 
 /**
  * Sign in with Google
  * @param rememberMe - If true, user stays signed in across browser sessions
  */
 export async function signInWithGoogle(rememberMe: boolean): Promise<User> {
+  // In development mode, return mock user
+  if (DEV_MODE) {
+    return MOCK_DEV_USER
+  }
+
   // Set persistence before signing in
   const persistenceType = rememberMe ? browserLocalPersistence : browserSessionPersistence
   await setPersistence(auth, persistenceType)
@@ -64,6 +80,12 @@ export function firebaseUserToAppUser(firebaseUser: FirebaseUser): User {
  * Listen to auth state changes
  */
 export function onAuthStateChanged(callback: (user: User | null) => void) {
+  // In development mode, immediately return mock user
+  if (DEV_MODE) {
+    callback(MOCK_DEV_USER)
+    return () => {} // Return no-op unsubscribe function
+  }
+
   return auth.onAuthStateChanged((firebaseUser) => {
     if (firebaseUser) {
       callback(firebaseUserToAppUser(firebaseUser))
