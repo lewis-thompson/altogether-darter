@@ -50,7 +50,7 @@ function EveryNumberPageWrapper() {
 function ScoreKillerPageWrapper() {
   const location = useLocation()
   const state = location.state as any || {}
-  return <ScoreKillerPage players={state.players || []} killerThreshold={1} />
+  return <ScoreKillerPage players={state.players || []} livesPerPlayer={state.livesPerPlayer || 3} />
 }
 
 function DoublesPageWrapper() {

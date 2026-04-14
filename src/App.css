@@ -656,6 +656,13 @@
   cursor: not-allowed;
 }
 
+.score-button {
+  font-size: 1rem;
+  padding: 12px 8px;
+  min-height: 44px;
+}
+
+
 .score-buttons {
   display: grid;
   grid-template-columns: repeat(5, minmax(80px, 1fr));
@@ -747,7 +754,7 @@
   }
 
   .score-buttons {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(60px, 1fr));
   }
 }
 
@@ -811,12 +818,12 @@
   }
 
   .score-buttons {
-    grid-template-columns: repeat(2, minmax(64px, 1fr));
+    grid-template-columns: repeat(4, minmax(56px, 1fr));
   }
 
   .modifier-row {
     display: grid;
-    grid-template-columns: repeat(3, minmax(64px, 1fr));
+    grid-template-columns: repeat(3, minmax(56px, 1fr));
   }
 
   .number-grid {
@@ -894,6 +901,17 @@
   .score-input-section:not(.collapsed) .score-buttons {
     margin: 8px 0 0 0;
     padding: 0;
+  }
+
+  .score-button {
+    font-size: 0.9rem;
+    padding: 8px 6px;
+    min-height: 36px;
+  }
+
+  .killer-players-list {
+    margin-top: 0;
+    padding-top: 8px;
   }
 
   /* Adjust page layout to account for fixed score section */

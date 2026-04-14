@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 interface GameHeaderProps {
   gameType: string
   currentPlayerName: string
-  round: number
+  round?: number
   threshold?: number
   bullseyeBuyback?: boolean
   bullseyeRoundsLeft?: number | null
@@ -16,7 +16,6 @@ export function GameHeader({
   gameType,
   currentPlayerName,
   round,
-  threshold,
   bullseyeBuyback,
   bullseyeRoundsLeft,
   onToggleBuyback,
@@ -30,12 +29,6 @@ export function GameHeader({
       <div className="header-row">
         <div className="header-info">
           <div className="header-title">{gameType}</div>
-          {threshold !== undefined && (
-            <div className="header-stat">
-              <span className="stat-label">Threshold:</span>
-              <span className="stat-value">{threshold}</span>
-            </div>
-          )}
           {headerStats?.map((stat) => (
             <div key={stat.label} className="header-stat">
               <span className="stat-label">{stat.label}:</span>
@@ -48,11 +41,15 @@ export function GameHeader({
           <div className="header-label">Current Player</div>
           <div className="header-title">{currentPlayerName}</div>
         </div>
-        <div className="header-divider"></div>
-        <div className="header-info">
-          <div className="header-label">Round</div>
-          <div className="header-title">{round}</div>
-        </div>
+        {round !== undefined && (
+          <>
+            <div className="header-divider"></div>
+            <div className="header-info">
+              <div className="header-label">Round</div>
+              <div className="header-title">{round}</div>
+            </div>
+          </>
+        )}
       </div>
       {bullseyeBuyback && (
         <div className="header-row">

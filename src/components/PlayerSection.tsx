@@ -3,8 +3,9 @@ import type { Player, PlayerStatus } from '../types'
 interface PlayerSectionProps {
   players: Player[]
   currentPlayerIndex: number
-  playerHits: Record<number, string[]>
-  playerPoints: Record<number, string>
+  playerHits?: Record<number, string[]>
+  currentHits?: string[]
+  playerPoints?: Record<number, string>
   playerStatus: Record<number, PlayerStatus>
   killerThreshold?: number
   playerLives?: Record<number, number>
@@ -15,7 +16,7 @@ interface PlayerSectionProps {
 export function PlayerSection({
   players,
   currentPlayerIndex,
-  playerHits,
+  currentHits,
   playerPoints,
   playerStatus,
   killerThreshold,
@@ -24,14 +25,13 @@ export function PlayerSection({
   onPlayerRef,
 }: PlayerSectionProps) {
   const isKiller = (playerId: number) =>
-    playerPoints[playerId] === String(killerThreshold) && playerStatus[playerId] === 'alive'
+    playerPoints && playerPoints[playerId] === String(killerThreshold) && playerStatus[playerId] === 'alive'
 
   return (
     <div className="killer-players-list" data-testid="player-section">
       {players.map((player, index) => {
         const status = playerStatus[player.id]
-        const hits = playerHits[player.id] ?? []
-        const points = playerPoints[player.id] ?? '0'
+        const hits = index === currentPlayerIndex && currentHits ? currentHits : []
 
         return (
           <div
@@ -51,10 +51,6 @@ export function PlayerSection({
             <div className="player-card-row">
               <strong>Hits</strong>
               <span>{hits.join(' | ') || '—'}</span>
-            </div>
-            <div className="player-card-row">
-              <strong>Points</strong>
-              <span>{points}</span>
             </div>
             {playerLives !== undefined && playerKills !== undefined ? (
               <>
