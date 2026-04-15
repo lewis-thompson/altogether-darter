@@ -24,6 +24,9 @@ export function DummyKillerPage() {
   const [playerHits, setPlayerHits] = useState<Record<string, string[]>>(
     initialPlayers.reduce((acc, p) => ({ ...acc, [p.id]: [] }), {})
   )
+  const [lastVisitHits, setLastVisitHits] = useState<Record<string, string[]>>(
+    initialPlayers.reduce((acc, p) => ({ ...acc, [p.id]: [] }), {})
+  )
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
   const [currentHits, setCurrentHits] = useState<string[]>([])
   const [currentRound, setCurrentRound] = useState(1)
@@ -50,6 +53,11 @@ export function DummyKillerPage() {
       const updatedHits = { ...playerHits }
       updatedHits[currentPlayer.id] = [...(updatedHits[currentPlayer.id] || []), ...newHits]
       setPlayerHits(updatedHits)
+
+      // Store this visit's hits as the last visit hits for this player
+      const updatedLastVisitHits = { ...lastVisitHits }
+      updatedLastVisitHits[currentPlayer.id] = newHits
+      setLastVisitHits(updatedLastVisitHits)
 
       // Reset for next player
       setCurrentHits([])
@@ -93,6 +101,7 @@ export function DummyKillerPage() {
       players={templatePlayers}
       currentPlayerIndex={currentPlayerIndex}
       currentHits={currentHits}
+      lastVisitHits={lastVisitHits}
       onAddScore={handleAddScore}
       onRemoveLastHit={handleRemoveLastHit}
       homeLink="/"

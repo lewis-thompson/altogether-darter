@@ -24,6 +24,7 @@ interface GameTemplateProps {
   players: PlayerData[]
   currentPlayerIndex: number
   currentHits: string[]
+  lastVisitHits?: Record<string, string[]>
   onAddScore: (value: 'miss' | 'bull' | number) => void
   onRemoveLastHit: () => void
   onToggleModifier?: (modifier: 'double' | 'treble') => void
@@ -36,6 +37,7 @@ export function GameTemplate({
   players,
   currentPlayerIndex,
   currentHits,
+  lastVisitHits = {},
   onAddScore,
   onRemoveLastHit,
   onToggleModifier,
@@ -123,9 +125,9 @@ export function GameTemplate({
                   <span className="template-data-value">
                     {index === currentPlayerIndex && currentHits.length > 0
                       ? currentHits.join(' | ')
-                      : player.hits.length === 0
-                        ? '—'
-                        : player.hits.join(' | ')}
+                      : lastVisitHits[player.id]?.length
+                        ? lastVisitHits[player.id].join(' | ')
+                        : '—'}
                   </span>
                 </div>
                 {Object.entries(player.additionalData).map(([key, value]) => (
