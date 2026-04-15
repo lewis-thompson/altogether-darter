@@ -6,7 +6,6 @@ import { LoginPage } from './components'
 import {
   HomePage,
   CreateGamePage,
-  KillerPage,
   GameCompletePage,
   SavedGamesPage,
   StatisticsPage,
@@ -21,9 +20,16 @@ import {
   DoublesPage,
   ShanghaiPage,
   SplitscorerPage,
+  KillerPage,
 } from './pages/games'
 
 // Wrapper components to pass location state as props
+function KillerPageWrapper() {
+  const location = useLocation()
+  const state = location.state as any || {}
+  return <KillerPage state={state} />
+}
+
 function X01PageWrapper() {
   const location = useLocation()
   const state = location.state as any || {}
@@ -92,7 +98,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<ProtectedRoute element={<HomePage />} />} />
       <Route path="/create-game" element={<ProtectedRoute element={<CreateGamePage />} />} />
-      <Route path="/killer" element={<ProtectedRoute element={<KillerPage />} />} />
+      <Route path="/killer" element={<ProtectedRoute element={<KillerPageWrapper />} />} />
       <Route path="/dummy-killer" element={<ProtectedRoute element={<DummyKillerPage />} />} />
       <Route path="/x01" element={<ProtectedRoute element={<X01PageWrapper />} />} />
       <Route path="/around-the-world" element={<ProtectedRoute element={<AroundTheWorldPageWrapper />} />} />
