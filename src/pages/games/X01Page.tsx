@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { useAuth } from '../../hooks'
-import { GameHeader, PlayerSection, ScoreComponent, PageLayout } from '../../components'
-import type { Player, PlayerStatus } from '../../types'
+import { GameTemplate } from '../GameTemplate'
+import type { Player } from '../../types'
 
 interface X01Props {
   players: Player[]
@@ -10,7 +10,6 @@ interface X01Props {
 
 export function X01Page({ players, startingScore }: X01Props) {
   const { user } = useAuth()
-  const playerCardRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
   const [currentRound, setCurrentRound] = useState(1)
@@ -23,9 +22,6 @@ export function X01Page({ players, startingScore }: X01Props) {
   const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: startingScore }), {})
   )
-  const [playerStatus] = useState<Record<number, PlayerStatus>>(() =>
-    players.reduce((acc, player) => ({ ...acc, [player.id]: 'alive' as PlayerStatus }), {})
-  )
 
   const [visitStartScore, setVisitStartScore] = useState(startingScore)
   const [legsWon, setLegsWon] = useState<Record<number, number>>(() =>
@@ -33,13 +29,7 @@ export function X01Page({ players, startingScore }: X01Props) {
   )
 
   const currentPlayer = players[currentPlayerIndex]
-  const currentPlayerStatus = playerStatus[currentPlayer?.id]
   const currentScore = playerScores[currentPlayer.id] ?? startingScore
-
-  useEffect(() => {
-    const currentCard = currentPlayer && playerCardRefs.current[currentPlayer.id]
-    currentCard?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [currentPlayerIndex, currentPlayer])
 
   function getHitValue(target: 'miss' | 'bull' | number, modifier: 'double' | 'treble' | null): number {
     if (target === 'miss') return 0
@@ -150,48 +140,38 @@ export function X01Page({ players, startingScore }: X01Props) {
   }
 
   if (!user || !currentPlayer) {
-    return <PageLayout title="X01">Loading...</PageLayout>
+    return <div>Loading...</div>
   }
 
+  const lastVisitHitsForTemplate = Object.fromEntries(
+    Object.entries(playerHits).map(([playerId, hits]) => [String(playerId), hits])
+  )
+
+  const playerDataForTemplate = players.map((player) => ({
+    id: String(player.id),
+    name: player.name,
+    hits: currentPlayerIndex === players.indexOf(player) ? currentHits : [],
+    additionalData: {
+      'Remaining': (playerScores[player.id] ?? startingScore).toString(),
+      'Legs Won': (legsWon[player.id] || 0).toString(),
+    },
+  }))
+
   return (
-    <PageLayout title="X01" showHomeLink={false}>
-      <GameHeader
-        gameType="X01"
-        currentPlayerName={currentPlayer.name}
-        round={currentRound}
-      />
-
-      <PlayerSection
-        players={players}
-        currentPlayerIndex={currentPlayerIndex}
-        playerHits={playerHits}
-        playerPoints={Object.fromEntries(Object.entries(playerScores).map(([k, v]) => [k, String(v)]))}
-        playerStatus={playerStatus}
-        onPlayerRef={(playerId, element) => {
-          playerCardRefs.current[playerId] = element
-        }}
-      />
-
-      {/* Display legs won for each player */}
-      <div style={{ marginBottom: '20px'  }}>
-        <h3 style={{ marginBottom: '12px' }}>Legs Won</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
-          {players.map((player) => (
-            <div key={player.id} style={{ padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
-              <strong>{player.name}:</strong> {legsWon[player.id] || 0}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <ScoreComponent
-        onAddScore={addHit}
-        onRemoveLastHit={removeLastHit}
-        onToggleModifier={toggleModifier}
-        selectedModifier={selectedModifier}
-        currentHits={currentHits}
-        canScoreMore={currentHits.length < 3 && currentPlayerStatus === 'alive'}
-      />
-    </PageLayout>
+    <GameTemplate
+      headerConfig={{
+        title: 'X01',
+        currentPlayer: currentPlayer.name,
+        round: currentRound,
+      }}
+      players={playerDataForTemplate}
+      currentPlayerIndex={currentPlayerIndex}
+      currentHits={currentHits}
+      lastVisitHits={lastVisitHitsForTemplate}
+      onAddScore={addHit}
+      onRemoveLastHit={removeLastHit}
+      onToggleModifier={toggleModifier}
+      selectedModifier={selectedModifier}
+    />
   )
 }

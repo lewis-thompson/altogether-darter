@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks'
-import { GameHeader, PlayerSection, ScoreComponent, PageLayout } from '../../components'
+import { GameTemplate } from '../GameTemplate'
 import type { Player, PlayerStatus } from '../../types'
 
 interface ScoreKillerProps {
@@ -12,7 +12,6 @@ interface ScoreKillerProps {
 export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProps) {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const playerCardRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
   const [currentRound, setCurrentRound] = useState(1)
@@ -24,9 +23,6 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
   )
   const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
-  )
-  const [playerStatus] = useState<Record<number, PlayerStatus>>(() =>
-    players.reduce((acc, player) => ({ ...acc, [player.id]: 'alive' as PlayerStatus }), {})
   )
 
   const [playerLives, setPlayerLives] = useState<Record<number, number>>(() =>
@@ -51,58 +47,48 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
   const [eliminationOrder, setEliminationOrder] = useState<number[]>([])
 
   const currentPlayer = players[currentPlayerIndex]
-  const currentPlayerStatus = playerStatus[currentPlayer?.id]
   const alivePlayers = players.filter((p) => playerLives[p.id] > 0)
 
-  useEffect(() => {
-    const currentCard = currentPlayer && playerCardRefs.current[currentPlayer.id]
-    if (currentCard) {
-      currentCard.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-  }, [currentPlayerIndex, currentPlayer])
-
-  useEffect(() => {
-    // Check if only one player left
-    if (alivePlayers.length === 1 && Object.values(playerLives).some((lives) => lives === 0)) {
-      const winner = alivePlayers[0]
-      navigate('/game-complete', {
-        state: {
-          winner,
-          winnerPoints: playerScores[winner.id] || 0,
-          totalPlayers: players.length,
-          totalRounds: currentRound,
-          totalAttempts: Object.values(playerHits).flat().length,
-          totalHits: Object.values(playerHits).flat().filter((h) => h !== 'M').length,
-          totalMisses: Object.values(playerHits).flat().filter((h) => h === 'M').length,
-          bullseyeBuybackEnabled: false,
-          bullseyeRounds: null,
-          finalStandings: players
-            .map((p) => {
-              const isAlive = playerLives[p.id] > 0
-              return {
-                id: p.id,
-                name: p.name,
-                selectedNumber: null,
-                points: playerScores[p.id] || 0,
-                status: isAlive ? ('alive' as PlayerStatus) : ('dead' as PlayerStatus),
-              }
-            })
-            .sort((a, b) => {
-              const aAlive = a.status === 'alive'
-              const bAlive = b.status === 'alive'
-              // Winners first (still alive), then by elimination order (reverse)
-              if (aAlive && !bAlive) return -1
-              if (!aAlive && bAlive) return 1
-              if (aAlive && bAlive) return 0
-              // Both dead: earlier eliminated comes later in standings
-              const aElimIdx = eliminationOrder.indexOf(a.id)
-              const bElimIdx = eliminationOrder.indexOf(b.id)
-              return bElimIdx - aElimIdx
-            }),
-        },
-      })
-    }
-  }, [alivePlayers.length, playerLives, playerScores, currentRound, playerHits, players, navigate])
+  // Check if game is complete
+  if (alivePlayers.length === 1 && Object.values(playerLives).some((lives) => lives === 0)) {
+    const winner = alivePlayers[0]
+    navigate('/game-complete', {
+      state: {
+        winner,
+        winnerPoints: playerScores[winner.id] || 0,
+        totalPlayers: players.length,
+        totalRounds: currentRound,
+        totalAttempts: Object.values(playerHits).flat().length,
+        totalHits: Object.values(playerHits).flat().filter((h) => h !== 'M').length,
+        totalMisses: Object.values(playerHits).flat().filter((h) => h === 'M').length,
+        bullseyeBuybackEnabled: false,
+        bullseyeRounds: null,
+        finalStandings: players
+          .map((p) => {
+            const isAlive = playerLives[p.id] > 0
+            return {
+              id: p.id,
+              name: p.name,
+              selectedNumber: null,
+              points: playerScores[p.id] || 0,
+              status: isAlive ? ('alive' as PlayerStatus) : ('dead' as PlayerStatus),
+            }
+          })
+          .sort((a, b) => {
+            const aAlive = a.status === 'alive'
+            const bAlive = b.status === 'alive'
+            // Winners first (still alive), then by elimination order (reverse)
+            if (aAlive && !bAlive) return -1
+            if (!aAlive && bAlive) return 1
+            if (aAlive && bAlive) return 0
+            // Both dead: earlier eliminated comes later in standings
+            const aElimIdx = eliminationOrder.indexOf(a.id)
+            const bElimIdx = eliminationOrder.indexOf(b.id)
+            return bElimIdx - aElimIdx
+          }),
+      },
+    })
+  }
 
   function getNumberValue(target: number): number {
     return target
@@ -371,42 +357,44 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
   }
 
   if (!user || !currentPlayer) {
-    return <PageLayout title="Score Killer">Loading...</PageLayout>
+    return <div>Loading...</div>
   }
 
+  const lastVisitHitsForTemplate = Object.fromEntries(
+    Object.entries(playerHits).map(([playerId, hits]) => [String(playerId), hits])
+  )
+
+  const playerDataForTemplate = players.map((player) => ({
+    id: String(player.id),
+    name: player.name,
+    hits: currentPlayerIndex === players.indexOf(player) ? currentHits : [],
+    additionalData: {
+      Lives: (playerLives[player.id] || 0).toString(),
+      Kills: (playerKills[player.id] || 0).toString(),
+    },
+  }))
+
   return (
-    <PageLayout title="Score Killer" showHomeLink={false}>
-      <GameHeader
-        gameType="Score Killer"
-        currentPlayerName={currentPlayer.name}
-        headerStats={[
+    <GameTemplate
+      headerConfig={{
+        title: 'Score Killer',
+        currentPlayer: currentPlayer.name,
+        round: currentRound,
+        stats: [
           {
             label: 'Score to beat',
             value: lastVisitScore === 0 ? '—' : lastVisitScore,
           },
-        ]}
-      />
-
-      <PlayerSection
-        players={players}
-        currentPlayerIndex={currentPlayerIndex}
-        currentHits={currentHits}
-        playerStatus={playerStatus}
-        playerLives={playerLives}
-        playerKills={playerKills}
-        onPlayerRef={(playerId, element) => {
-          playerCardRefs.current[playerId] = element
-        }}
-      />
-
-      <ScoreComponent
-        onAddScore={addHit}
-        onRemoveLastHit={removeLastHit}
-        onToggleModifier={toggleModifier}
-        selectedModifier={selectedModifier}
-        currentHits={currentHits}
-        canScoreMore={currentHits.length < 3 && currentPlayerStatus === 'alive'}
-      />
-    </PageLayout>
+        ],
+      }}
+      players={playerDataForTemplate}
+      currentPlayerIndex={currentPlayerIndex}
+      currentHits={currentHits}
+      lastVisitHits={lastVisitHitsForTemplate}
+      onAddScore={addHit}
+      onRemoveLastHit={removeLastHit}
+      onToggleModifier={toggleModifier}
+      selectedModifier={selectedModifier}
+    />
   )
 }

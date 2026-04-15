@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks'
-import { GameHeader, PlayerSection, ScoreComponent, PageLayout } from '../../components'
-import type { Player, PlayerStatus } from '../../types'
+import { GameTemplate } from '../GameTemplate'
+import type { Player } from '../../types'
 
 interface EveryNumberProps {
   players: Player[]
@@ -11,7 +11,6 @@ interface EveryNumberProps {
 export function EveryNumberPage({ players }: EveryNumberProps) {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const playerCardRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
   const [currentRound, setCurrentRound] = useState(1)
@@ -44,20 +43,7 @@ export function EveryNumberPage({ players }: EveryNumberProps) {
       return acc
     }, {} as Record<number, number>)
   )
-  const [playerStatus] = useState<Record<number, PlayerStatus>>(() =>
-    players.reduce((acc, player) => {
-      acc[player.id] = 'alive' as PlayerStatus
-      return acc
-    }, {} as Record<number, PlayerStatus>)
-  )
-
   const currentPlayer = players[currentPlayerIndex]
-  const currentPlayerStatus = playerStatus[currentPlayer?.id]
-
-  useEffect(() => {
-    const currentCard = currentPlayer && playerCardRefs.current[currentPlayer.id]
-    currentCard?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [currentPlayerIndex, currentPlayer])
 
   function checkGameComplete(): boolean {
     return players.some((player) =>
@@ -172,29 +158,41 @@ export function EveryNumberPage({ players }: EveryNumberProps) {
   }
 
   if (!user || !currentPlayer) {
-    return <PageLayout title="Every Number">Loading...</PageLayout>
+    return <div>Loading...</div>
   }
 
-  return (
-    <PageLayout title="Every Number" showHomeLink={false}>
-      <GameHeader
-        gameType="Every Number"
-        currentPlayerName={currentPlayer.name}
-        round={currentRound}
-        headerStats={[
-          { label: 'Hits per number', value: hitsPerNumber }
-        ]}
-      />
+  const lastVisitHitsForTemplate = Object.fromEntries(
+    Object.entries(playerHits).map(([playerId, hits]) => [String(playerId), hits])
+  )
 
-      <PlayerSection
-        players={players}
-        currentPlayerIndex={currentPlayerIndex}
-        playerHits={playerHits}
-        playerPoints={Object.fromEntries(Object.entries(playerScores).map(([k, v]) => [k, String(v)]))}
-        playerStatus={playerStatus}
-        onPlayerRef={(playerId, element) => {
-          playerCardRefs.current[playerId] = element
+  const playerDataForTemplate = players.map((player) => ({
+    id: String(player.id),
+    name: player.name,
+    hits: currentPlayerIndex === players.indexOf(player) ? currentHits : [],
+    additionalData: {
+      Score: (playerScores[player.id] || 0).toString(),
+    },
+  }))
+
+  return (
+    <>
+      <GameTemplate
+        headerConfig={{
+          title: 'Every Number',
+          currentPlayer: currentPlayer.name,
+          round: currentRound,
+          stats: [
+            { label: 'Hits per number', value: hitsPerNumber }
+          ],
         }}
+        players={playerDataForTemplate}
+        currentPlayerIndex={currentPlayerIndex}
+        currentHits={currentHits}
+        lastVisitHits={lastVisitHitsForTemplate}
+        onAddScore={addHit}
+        onRemoveLastHit={removeLastHit}
+        onToggleModifier={toggleModifier}
+        selectedModifier={selectedModifier}
       />
 
       {/* Display number hits for each player */}
@@ -229,15 +227,6 @@ export function EveryNumberPage({ players }: EveryNumberProps) {
           </div>
         ))}
       </div>
-
-      <ScoreComponent
-        onAddScore={addHit}
-        onRemoveLastHit={removeLastHit}
-        onToggleModifier={toggleModifier}
-        selectedModifier={selectedModifier}
-        currentHits={currentHits}
-        canScoreMore={currentHits.length < 3 && currentPlayerStatus === 'alive'}
-      />
-    </PageLayout>
+    </>
   )
 }

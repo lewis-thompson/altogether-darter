@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks'
-import { GameHeader, PlayerSection, ScoreComponent, PageLayout } from '../../components'
-import type { Player, PlayerStatus } from '../../types'
+import { GameTemplate } from '../GameTemplate'
+import type { Player } from '../../types'
 
 interface AroundTheWorldProps {
   players: Player[]
@@ -11,7 +11,6 @@ interface AroundTheWorldProps {
 export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const playerCardRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
   const [currentRound, setCurrentRound] = useState(1)
@@ -24,17 +23,8 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
   const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
   )
-  const [playerStatus] = useState<Record<number, PlayerStatus>>(() =>
-    players.reduce((acc, player) => ({ ...acc, [player.id]: 'alive' as PlayerStatus }), {})
-  )
 
   const currentPlayer = players[currentPlayerIndex]
-  const currentPlayerStatus = playerStatus[currentPlayer?.id]
-
-  useEffect(() => {
-    const currentCard = currentPlayer && playerCardRefs.current[currentPlayer.id]
-    currentCard?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [currentPlayerIndex, currentPlayer])
 
   function getCurrentSegment(score: number): number | string {
     if (score <= 20) return score
@@ -147,36 +137,37 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
   }
 
   if (!user || !currentPlayer) {
-    return <PageLayout title="Around The World">Loading...</PageLayout>
+    return <div>Loading...</div>
   }
 
+  const lastVisitHitsForTemplate = Object.fromEntries(
+    Object.entries(playerHits).map(([playerId, hits]) => [String(playerId), hits])
+  )
+
+  const playerDataForTemplate = players.map((player) => ({
+    id: String(player.id),
+    name: player.name,
+    hits: currentPlayerIndex === players.indexOf(player) ? currentHits : [],
+    additionalData: {
+      Segment: getCurrentSegment(playerScores[player.id] || 0).toString(),
+    },
+  }))
+
   return (
-    <PageLayout title="Around The World" showHomeLink={false}>
-      <GameHeader
-        gameType="Around The World"
-        currentPlayerName={currentPlayer.name}
-        round={currentRound}
-      />
-
-      <PlayerSection
-        players={players}
-        currentPlayerIndex={currentPlayerIndex}
-        playerHits={playerHits}
-        playerPoints={Object.fromEntries(Object.entries(playerScores).map(([k, v]) => [k, String(v)]))}
-        playerStatus={playerStatus}
-        onPlayerRef={(playerId, element) => {
-          playerCardRefs.current[playerId] = element
-        }}
-      />
-
-      <ScoreComponent
-        onAddScore={addHit}
-        onRemoveLastHit={removeLastHit}
-        onToggleModifier={toggleModifier}
-        selectedModifier={selectedModifier}
-        currentHits={currentHits}
-        canScoreMore={currentHits.length < 3 && currentPlayerStatus === 'alive'}
-      />
-    </PageLayout>
+    <GameTemplate
+      headerConfig={{
+        title: 'Around The World',
+        currentPlayer: currentPlayer.name,
+        round: currentRound,
+      }}
+      players={playerDataForTemplate}
+      currentPlayerIndex={currentPlayerIndex}
+      currentHits={currentHits}
+      lastVisitHits={lastVisitHitsForTemplate}
+      onAddScore={addHit}
+      onRemoveLastHit={removeLastHit}
+      onToggleModifier={toggleModifier}
+      selectedModifier={selectedModifier}
+    />
   )
 }
