@@ -11,6 +11,7 @@ import {
   SavedGamesPage,
   StatisticsPage,
 } from './pages'
+import { DummyKillerPage } from './pages/DummyKillerPage'
 import {
   X01Page,
   AroundTheWorldPage,
@@ -92,6 +93,7 @@ function App() {
       <Route path="/" element={<ProtectedRoute element={<HomePage />} />} />
       <Route path="/create-game" element={<ProtectedRoute element={<CreateGamePage />} />} />
       <Route path="/killer" element={<ProtectedRoute element={<KillerPage />} />} />
+      <Route path="/dummy-killer" element={<ProtectedRoute element={<DummyKillerPage />} />} />
       <Route path="/x01" element={<ProtectedRoute element={<X01PageWrapper />} />} />
       <Route path="/around-the-world" element={<ProtectedRoute element={<AroundTheWorldPageWrapper />} />} />
       <Route path="/cricket" element={<ProtectedRoute element={<CricketPageWrapper />} />} />

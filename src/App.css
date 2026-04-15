@@ -937,11 +937,11 @@
   }
 
   .killer-players-list {
-    margin-top: 0;
+    margin-top: 18vh;
     padding-top: 8px;
     max-height: calc(100dvh - 18vh - 50vh);
     min-height: auto;
-    scroll-padding-top: 10vh;
+    scroll-padding-top: 18vh;
   }
 
   /* Adjust page layout to account for fixed score section */

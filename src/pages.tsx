@@ -36,6 +36,9 @@ export function HomePage() {
         <Link className="page-button" to="/statistics">
           Statistics
         </Link>
+        <Link className="page-button" to="/dummy-killer">
+          Test Dummy Killer
+        </Link>
       </div>
     </main>
   )

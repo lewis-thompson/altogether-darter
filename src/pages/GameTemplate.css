@@ -1,0 +1,305 @@
+.game-template-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* Header */
+.template-header {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg);
+  border-bottom: 2px solid var(--border);
+  z-index: 90;
+}
+
+.template-header-top {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.template-home-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.template-home-button:hover {
+  background: var(--accent);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.template-home-button:active {
+  transform: translateY(0);
+}
+
+.template-header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.template-header-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.template-header-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.template-header-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+}
+
+.template-stat-label {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.template-stat-value {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.template-header-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+}
+
+/* Players Wrapper - Scrollable Area */
+.template-players-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 120px;
+}
+
+.template-players-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 16px;
+  grid-auto-rows: max-content;
+}
+
+/* Player Card */
+.template-player-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  transition: all 0.2s ease;
+}
+
+.template-player-card.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.1);
+}
+
+.template-player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.template-player-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-h);
+}
+
+.template-player-data {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.template-data-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  padding: 3px 0;
+}
+
+.template-data-label {
+  font-weight: 600;
+  color: var(--text-h);
+  min-width: 60px;
+  text-transform: capitalize;
+}
+
+.template-data-value {
+  font-weight: 500;
+  color: var(--text);
+  text-align: right;
+  flex: 1;
+}
+
+/* Score Section */
+.template-score-section {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg);
+  border-top: 2px solid var(--border);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.template-modifier-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.template-score-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.template-modifier-button,
+.template-score-button {
+  padding: 12px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.template-modifier-button:hover:not(:disabled),
+.template-score-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.template-modifier-button:disabled,
+.template-score-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.template-modifier-button.selected {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.template-score-button.modifier-active {
+  border-color: var(--accent-border);
+}
+
+/* Mobile Styles */
+@media (max-width: 640px) {
+  .template-header {
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .template-header-title {
+    font-size: 1.1rem;
+  }
+
+  .template-header-stats {
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+
+  .template-stat-value {
+    font-size: 0.95rem;
+  }
+
+  .template-players-wrapper {
+    padding-bottom: 150px;
+  }
+
+  .template-players-list {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .template-player-card {
+    padding: 12px;
+    gap: 6px;
+    border-radius: 12px;
+  }
+
+  .template-player-header {
+    padding-bottom: 6px;
+  }
+
+  .template-data-label {
+    min-width: 50px;
+    font-size: 0.85rem;
+  }
+
+  .template-data-value {
+    font-size: 0.85rem;
+  }
+
+  .template-score-section {
+    padding: 10px 12px;
+    gap: 10px;
+    max-height: 45vh;
+  }
+
+  .template-modifier-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .template-score-buttons {
+    grid-template-columns: repeat(4, minmax(50px, 1fr));
+  }
+
+  .template-modifier-button,
+  .template-score-button {
+    padding: 10px 6px;
+    font-size: 0.9rem;
+    min-height: 40px;
+  }
+}
