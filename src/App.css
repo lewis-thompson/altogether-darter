@@ -57,20 +57,23 @@
 }
 
 .page-content:has(.killer-game-header) {
-  padding-top: calc(25vh + 4px);
+  padding-top: 0;
   padding-bottom: 0;
   padding-left: 0;
   padding-right: 0;
   gap: 0;
+  overflow: hidden;
+  height: 100vh;
 }
 
 .page-content:has(.killer-game-header.with-buyback) {
-  padding-top: calc(32vh + 4px);
+  padding-top: 0;
 }
 
 .page:has(.killer-game-header) {
   gap: 0;
   padding: 0;
+  overflow: hidden;
 }
 
 .page:has(.killer-game-header) > .page-header {
@@ -245,24 +248,29 @@
 .killer-players-list {
   display: grid;
   grid-template-columns: 1fr;
-  max-height: none;
+  max-height: calc(100dvh - 26vh - 120px);
   overflow-y: auto;
-  min-height: calc(100dvh - 25vh - 50vh);
-  padding: 8px;
-  margin: 0;
-  gap: 8px;
+  min-height: auto;
+  padding: 16px 16px 8px 16px;
+  margin-top: 26vh;
+  gap: 12px;
   list-style: none;
   scroll-behavior: smooth;
+  scroll-padding-top: 26vh;
+  grid-auto-rows: max-content;
 }
 
 .killer-players-list .player-card {
-  border: 1px solid transparent;
-  background: transparent;
-  padding: 10px;
-  gap: 6px;
-  border-radius: 12px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  padding: 16px;
+  gap: 4px;
+  border-radius: 16px;
   margin: 0;
   transition: all 0.2s ease;
+  overflow: visible;
+  height: auto;
+  min-height: auto;
 }
 
 .player-card,
@@ -499,6 +507,9 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+  margin: 0 0 6px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .player-selected-number {
@@ -510,8 +521,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
+  gap: 12px;
+  font-size: 0.9rem;
+  margin: 3px 0;
+  padding: 2px 0;
+}
+
+.player-card-row strong {
+  font-weight: 600;
+  color: var(--text-h);
+  min-width: 60px;
+}
+
+.player-card-row span {
+  font-weight: 500;
+  color: var(--text);
+  text-align: right;
+  flex: 1;
 }
 
 .player-item {
@@ -521,6 +547,10 @@
 .player-name {
   margin: 0;
   font-weight: 700;
+  font-size: 1rem;
+}
+
+.killer-players-list .player-name {
   font-size: 0.95rem;
 }
 
@@ -764,13 +794,13 @@
   }
 
   .killer-game-header {
-    max-height: 25vh;
+    max-height: 18vh;
     padding: 10px 12px;
     gap: 6px;
   }
 
   .killer-game-header.with-buyback {
-    max-height: 32vh;
+    max-height: 22vh;
   }
 
   .header-row {
@@ -867,19 +897,17 @@
   }
 
   .score-component-header {
-    display: flex;
-    flex-shrink: 0;
+    display: none;
   }
 
   .score-input-section:not(.collapsed) .modifier-row,
   .score-input-section:not(.collapsed) .score-buttons {
     flex-shrink: 0;
-    overflow-y: auto;
+    overflow-y: visible;
   }
 
   .score-input-section.collapsed {
-    gap: 0;
-    max-height: auto;
+    display: none;
   }
 
   .score-input-section.collapsed .modifier-row,
@@ -887,7 +915,6 @@
     display: none;
   }
 
-  /* Wrapper for scrollable content */
   .score-input-section:not(.collapsed) {
     gap: 0;
   }
@@ -912,6 +939,9 @@
   .killer-players-list {
     margin-top: 0;
     padding-top: 8px;
+    max-height: calc(100dvh - 18vh - 50vh);
+    min-height: auto;
+    scroll-padding-top: 10vh;
   }
 
   /* Adjust page layout to account for fixed score section */

@@ -56,7 +56,9 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
 
   useEffect(() => {
     const currentCard = currentPlayer && playerCardRefs.current[currentPlayer.id]
-    currentCard?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (currentCard) {
+      currentCard.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
   }, [currentPlayerIndex, currentPlayer])
 
   useEffect(() => {
