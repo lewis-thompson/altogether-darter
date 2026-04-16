@@ -24,123 +24,80 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
     players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
   )
 
-  const roundSequences = [
-    [...Array(7).keys()].map((i) => i + 1), // Round 1: 1-7
-    [...Array(8).keys()].map((i) => i + 8), // Round 2: 8-15
-    [...Array(5).keys()].map((i) => i + 16).concat([0]), // Round 3: 16-20 + Bull (0)
-  ]
-
-  const [currentGameRound, setCurrentGameRound] = useState(1)
-  const [playerNumberHits, setPlayerNumberHits] = useState<Record<number, Record<string, number>>>(() =>
-    players.reduce((acc, player) => {
-      acc[player.id] = {}
-      return acc
-    }, {} as Record<number, Record<string, number>>)
-  )
+  // Shanghai has 20 rounds, targeting numbers 1-20
+  const getTargetNumber = (round: number): number => {
+    if (round > 20) return -1 // Game over
+    return round
+  }
 
   const currentPlayer = players[currentPlayerIndex]
-  const roundNumbers = roundSequences[currentGameRound - 1] || []
+  const targetNumber = getTargetNumber(currentRound)
 
-  function getPointsForHit(modifier: 'double' | 'treble' | null): number {
-    if (modifier === 'double') return 2
-    if (modifier === 'treble') return 3
-    return 1
+  function formatHit(target: 'miss' | 'bull' | number, modifier: 'double' | 'treble' | null): string {
+    if (target === 'miss') return 'M'
+    if (target === 'bull') return modifier === 'double' ? 'DB' : 'SB'
+    if (modifier === 'double') return `D${target}`
+    if (modifier === 'treble') return `T${target}`
+    return String(target)
   }
 
   function addHit(target: 'miss' | 'bull' | number) {
     if (currentHits.length >= 3) return
+    if (targetNumber < 1) return // Game over
+
+    // Check if hit is on target
+    let isOnTarget = false
+    let hitValue = 0
+
     if (target === 'miss') {
-      setCurrentHits([...currentHits, 'M'])
-      setSelectedModifier(null)
-
-      if (currentHits.length === 2) {
-        // End of visit
-        setPlayerHits({
-          ...playerHits,
-          [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...currentHits, 'M'],
-        })
-        setCurrentHits([])
-
-        // Move to next player
-        const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
-        if (nextPlayerIndex === 0) {
-          setCurrentRound((r) => r + 1)
-        }
-        setCurrentPlayerIndex(nextPlayerIndex)
-      }
-      return
+      isOnTarget = false
+      hitValue = 0
+    } else if (target === 'bull') {
+      // Bull is never the target in Shanghai (targets are 1-20)
+      isOnTarget = false
+      hitValue = 0
+    } else if (target === targetNumber) {
+      // Hit the target number
+      isOnTarget = true
+      if (selectedModifier === 'double') hitValue = target * 2
+      else if (selectedModifier === 'treble') hitValue = target * 3
+      else hitValue = target
     }
 
-    if (!roundNumbers.includes(target === 'bull' ? 0 : target)) {
-      // Hit wrong number for this round
-      setCurrentHits([...currentHits, 'M'])
-      setSelectedModifier(null)
-
-      if (currentHits.length === 2) {
-        setPlayerHits({
-          ...playerHits,
-          [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...currentHits, 'M'],
-        })
-        setCurrentHits([])
-
-        const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
-        if (nextPlayerIndex === 0) {
-          setCurrentRound((r) => r + 1)
-        }
-        setCurrentPlayerIndex(nextPlayerIndex)
-      }
-      return
-    }
-
-    const targetNum = target === 'bull' ? 0 : target
-    const hitModifier = selectedModifier || 'single'
-    const hitStr = `${hitModifier === 'double' ? 'D' : hitModifier === 'treble' ? 'T' : 'S'}${targetNum}`
-
-    // Update number hits
-    const newPlayerNumberHits = { ...playerNumberHits }
-    newPlayerNumberHits[currentPlayer.id] = { ...newPlayerNumberHits[currentPlayer.id] }
-    newPlayerNumberHits[currentPlayer.id][hitStr] = (newPlayerNumberHits[currentPlayer.id][hitStr] || 0) + 1
-
-    // Check for shanghai
-    const roundHits = Object.fromEntries(
-      Object.entries(newPlayerNumberHits[currentPlayer.id])
-        .filter(([k]) => k.includes(String(targetNum)))
-        .map(([k, v]) => [k, v])
-    )
-
-    const hasShanghai = roundHits[`S${targetNum}`] > 0 && roundHits[`D${targetNum}`] > 0 && roundHits[`T${targetNum}`] > 0
-
-    setPlayerNumberHits(newPlayerNumberHits)
-
-    // Calculate score
-    const points = getPointsForHit(selectedModifier)
-    const value = points
-    const newScore = (playerScores[currentPlayer.id] || 0) + value
-
-    setPlayerScores({
-      ...playerScores,
-      [currentPlayer.id]: newScore,
-    })
-
-    setCurrentHits([...currentHits, hitStr])
+    const hitStr = formatHit(target, selectedModifier)
+    const newHits = [...currentHits, hitStr]
+    setCurrentHits(newHits)
     setSelectedModifier(null)
 
-    if (hasShanghai || currentHits.length === 2) {
-      // Game complete (shanghai or normal end of visit)
-      const newHits = hasShanghai ? [...currentHits, hitStr] : [...currentHits, hitStr]
+    // If on target, add to score
+    if (isOnTarget) {
+      const newScore = (playerScores[currentPlayer.id] || 0) + hitValue
+      setPlayerScores({
+        ...playerScores,
+        [currentPlayer.id]: newScore,
+      })
+    }
+
+    // Check if visit is over (3 darts or all 3 spent)
+    if (newHits.length === 3) {
       setPlayerHits({
         ...playerHits,
         [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
       })
+      setCurrentHits([])
 
-      if (hasShanghai) {
-        // Winner is this player!
+      // Check if game over
+      if (currentRound === 20 && currentPlayerIndex === players.length - 1) {
+        // Game complete
+        const winner = players.reduce((best, p) =>
+          (playerScores[p.id] || 0) > (playerScores[best.id] || 0) ? p : best
+        )
         navigate('/game-complete', {
           state: {
-            winner: currentPlayer,
-            winnerPoints: newScore,
+            winner,
+            winnerPoints: playerScores[winner.id] || 0,
             totalPlayers: players.length,
-            totalRounds: currentGameRound,
+            totalRounds: 20,
             totalAttempts: Object.values(playerHits).flat().length + newHits.length,
             totalHits: newHits.filter((h) => h !== 'M').length,
             totalMisses: newHits.filter((h) => h === 'M').length,
@@ -151,31 +108,10 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
         return
       }
 
-      setCurrentHits([])
-
+      // Move to next player
       const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
       if (nextPlayerIndex === 0) {
-        if (currentGameRound === 3) {
-          // Game over - all rounds complete
-          const winner = players.reduce((best, p) =>
-            (playerScores[p.id] || 0) > (playerScores[best.id] || 0) ? p : best
-          )
-          navigate('/game-complete', {
-            state: {
-              winner,
-              winnerPoints: playerScores[winner.id] || 0,
-              totalPlayers: players.length,
-              totalRounds: 3,
-              totalAttempts: Object.values(playerHits).flat().length + newHits.length,
-              totalHits: newHits.filter((h) => h !== 'M').length,
-              totalMisses: newHits.filter((h) => h === 'M').length,
-              bullseyeBuybackEnabled: false,
-              bullseyeRounds: null,
-            },
-          })
-          return
-        }
-        setCurrentGameRound((r) => r + 1)
+        setCurrentRound((r) => r + 1)
       }
       setCurrentPlayerIndex(nextPlayerIndex)
     }
@@ -183,8 +119,33 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
 
   function removeLastHit() {
     if (currentHits.length > 0) {
+      const removedHit = currentHits[currentHits.length - 1]
       setCurrentHits(currentHits.slice(0, -1))
+
+      // If we removed a scoring hit, subtract from score
+      if (removedHit !== 'M' && targetNumber > 0) {
+        const hitValue = extractHitValue(removedHit, targetNumber)
+        if (hitValue > 0) {
+          setPlayerScores({
+            ...playerScores,
+            [currentPlayer.id]: Math.max(0, (playerScores[currentPlayer.id] || 0) - hitValue),
+          })
+        }
+      }
     }
+  }
+
+  function extractHitValue(hitStr: string, targetNum: number): number {
+    if (hitStr === 'M' || hitStr === 'SB' || hitStr === 'DB') return 0
+
+    const modifier = hitStr.charAt(0)
+    const num = parseInt(hitStr.slice(1), 10)
+
+    if (num !== targetNum) return 0
+
+    if (modifier === 'D') return targetNum * 2
+    if (modifier === 'T') return targetNum * 3
+    return targetNum
   }
 
   function toggleModifier(modifier: 'double' | 'treble') {
@@ -214,6 +175,12 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
         title: 'Shanghai',
         currentPlayer: currentPlayer.name,
         round: currentRound,
+        stats: targetNumber > 0 ? [
+          {
+            label: 'Target',
+            value: targetNumber.toString(),
+          },
+        ] : undefined,
       }}
       players={playerDataForTemplate}
       currentPlayerIndex={currentPlayerIndex}

@@ -176,6 +176,12 @@ export function SplitscorerPage({ players }: SplitscoreProps) {
         title: 'Splitscore',
         currentPlayer: currentPlayer.name,
         round: currentRound,
+        stats: currentTarget ? [
+          {
+            label: 'Target',
+            value: currentTarget.name,
+          },
+        ] : undefined,
       }}
       players={playerDataForTemplate}
       currentPlayerIndex={currentPlayerIndex}

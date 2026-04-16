@@ -33,7 +33,7 @@ function KillerPageWrapper() {
 function X01PageWrapper() {
   const location = useLocation()
   const state = location.state as any || {}
-  return <X01Page players={state.players || []} startingScore={state.startingScore || 501} />
+  return <X01Page players={state.players || []} startingScore={state.startingScore || 501} legsPerSet={state.legsPerSet || 3} setsPerGame={state.setsPerGame || 3} doubleIn={state.doubleIn ?? false} doubleOut={state.doubleOut ?? true} />
 }
 
 function AroundTheWorldPageWrapper() {

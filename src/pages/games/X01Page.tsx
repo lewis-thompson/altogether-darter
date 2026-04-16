@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks'
 import { GameTemplate } from '../GameTemplate'
 import type { Player } from '../../types'
@@ -6,10 +7,15 @@ import type { Player } from '../../types'
 interface X01Props {
   players: Player[]
   startingScore: number
+  legsPerSet?: number
+  setsPerGame?: number
+  doubleIn?: boolean
+  doubleOut?: boolean
 }
 
-export function X01Page({ players, startingScore }: X01Props) {
+export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 3, doubleIn: _doubleIn = false, doubleOut: _doubleOut = true }: X01Props) {
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
   const [currentRound, setCurrentRound] = useState(1)
@@ -25,6 +31,9 @@ export function X01Page({ players, startingScore }: X01Props) {
 
   const [visitStartScore, setVisitStartScore] = useState(startingScore)
   const [legsWon, setLegsWon] = useState<Record<number, number>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
+  )
+  const [setsWon, setSetsWon] = useState<Record<number, number>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
   )
 
@@ -94,7 +103,42 @@ export function X01Page({ players, startingScore }: X01Props) {
       setLegsWon(newLegsWon)
       setVisitStartScore(startingScore)
 
-      // For now, just reset and next player
+      // Check if player has won enough legs for this set
+      if (newLegsWon[currentPlayer.id] >= legsPerSet) {
+        // Player won the set!
+        const newSetsWon = { ...setsWon }
+        newSetsWon[currentPlayer.id] = (newSetsWon[currentPlayer.id] || 0) + 1
+
+        setSetsWon(newSetsWon)
+        
+        // Check if player has won the game
+        if (newSetsWon[currentPlayer.id] >= setsPerGame) {
+          // Game over!
+          navigate('/game-complete', {
+            state: {
+              winner: currentPlayer,
+              winnerPoints: newSetsWon[currentPlayer.id],
+              totalPlayers: players.length,
+              totalRounds: currentRound,
+              totalAttempts: Object.values(playerHits).flat().length + newHits.length,
+              totalHits: newHits.filter((h) => h !== 'M').length,
+              totalMisses: newHits.filter((h) => h === 'M').length,
+              bullseyeBuybackEnabled: false,
+              bullseyeRounds: null,
+            },
+          })
+          return
+        }
+
+        // Reset leg counts for new set
+        const resetLegsWon = { ...newLegsWon }
+        players.forEach((p) => {
+          resetLegsWon[p.id] = 0
+        })
+        setLegsWon(resetLegsWon)
+      }
+
+      // Move to next player
       const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
       if (nextPlayerIndex === 0) {
         setCurrentRound((r) => r + 1)
@@ -153,16 +197,21 @@ export function X01Page({ players, startingScore }: X01Props) {
     hits: currentPlayerIndex === players.indexOf(player) ? currentHits : [],
     additionalData: {
       'Remaining': (playerScores[player.id] ?? startingScore).toString(),
-      'Legs Won': (legsWon[player.id] || 0).toString(),
+      'Legs': (legsWon[player.id] || 0).toString(),
+      'Sets': (setsWon[player.id] || 0).toString(),
     },
   }))
 
   return (
     <GameTemplate
       headerConfig={{
-        title: 'X01',
+        title: String(startingScore),
         currentPlayer: currentPlayer.name,
         round: currentRound,
+        stats: [
+          { label: 'Legs to win', value: legsPerSet },
+          { label: 'Sets to win', value: setsPerGame },
+        ],
       }}
       players={playerDataForTemplate}
       currentPlayerIndex={currentPlayerIndex}

@@ -21,7 +21,7 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
     players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
   )
   const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
-    players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
+    players.reduce((acc, player) => ({ ...acc, [player.id]: 1 }), {})
   )
 
   const currentPlayer = players[currentPlayerIndex]

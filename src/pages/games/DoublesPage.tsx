@@ -24,80 +24,102 @@ export function DoublesPage({ players }: DoublesProps) {
     players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
   )
 
-  const currentPlayer = players[currentPlayerIndex]
+  // Doubles has 21 rounds: targeting doubles 1-20, then bullseye
+  const getTargetDouble = (round: number): string => {
+    if (round > 21) return ''
+    if (round === 21) return 'Bull'
+    return `Double ${round}`
+  }
 
-  function getHitValue(target: 'miss' | 'bull' | number, modifier: 'double' | 'treble' | null): string {
+  const currentPlayer = players[currentPlayerIndex]
+  const targetDouble = getTargetDouble(currentRound)
+  const targetNumber = currentRound <= 20 ? currentRound : 25 // 25 represents bullseye in scoring
+
+  function formatHit(target: 'miss' | 'bull' | number, modifier: 'double' | 'treble' | null): string {
     if (target === 'miss') return 'M'
-    if (target === 'bull') return selectedModifier === 'double' ? 'DB' : 'SB'
+    if (target === 'bull') return modifier === 'double' ? 'DB' : 'SB'
     if (modifier === 'double') return `D${target}`
     if (modifier === 'treble') return `T${target}`
     return String(target)
   }
 
-  function getPointsForHit(hit: string): number {
-    if (hit === 'M' || hit === 'SB') return 0
-    if (hit === 'DB') return 50
-    if (hit.startsWith('D')) {
-      const num = parseInt(hit.substring(1), 10)
-      return num * 2
+  function getHitValue(hitStr: string, round: number): number {
+    if (hitStr === 'M' || hitStr === 'SB') return 0
+    if (hitStr === 'DB' && round === 21) return 50
+    if (hitStr.startsWith('D')) {
+      const num = parseInt(hitStr.slice(1), 10)
+      if (num === targetNumber) return num * 2
     }
     return 0
   }
 
   function addHit(target: 'miss' | 'bull' | number) {
     if (currentHits.length >= 3) return
-    if (!selectedModifier && target !== 'miss' && target !== 'bull') return
+    if (currentRound > 21) return // Game over
 
-    const hitValue = target === 'bull' && selectedModifier === null ? 'SB' : getHitValue(target, selectedModifier)
-    const points = getPointsForHit(hitValue)
+    let isOnTarget = false
+    let hitValue = 0
 
-    if (points === 0) {
-      // Miss or non-double - reset modifier
-      setCurrentHits([...currentHits, hitValue])
-      setSelectedModifier(null)
-      return
+    if (target === 'miss') {
+      isOnTarget = false
+      hitValue = 0
+    } else if (target === 'bull') {
+      // Bull is only a target on round 21
+      isOnTarget = currentRound === 21
+      if (isOnTarget) hitValue = 50
+    } else if (currentRound <= 20 && target === targetNumber && selectedModifier === 'double') {
+      // Hit the target double
+      isOnTarget = true
+      hitValue = target * 2
     }
 
-    setCurrentHits([...currentHits, hitValue])
+    const hitStr = formatHit(target, selectedModifier)
+    const newHits = [...currentHits, hitStr]
+    setCurrentHits(newHits)
     setSelectedModifier(null)
 
-    if (currentHits.length === 2) {
-      // This is the 3rd dart in the visit, move to next player
-      const newHits = [...currentHits, hitValue]
-      const visitScore = newHits.reduce((sum, h) => sum + getPointsForHit(h), 0)
-      const newPlayerScores = { ...playerScores }
-      newPlayerScores[currentPlayer.id] = (newPlayerScores[currentPlayer.id] || 0) + visitScore
-      setPlayerScores(newPlayerScores)
+    // Add score if on target
+    if (isOnTarget) {
+      const newScore = (playerScores[currentPlayer.id] || 0) + hitValue
+      setPlayerScores({
+        ...playerScores,
+        [currentPlayer.id]: newScore,
+      })
+    }
+
+    // Check if visit is over (3 darts)
+    if (newHits.length === 3) {
       setPlayerHits({
         ...playerHits,
         [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
       })
       setCurrentHits([])
 
-      // Determine if game ends (all players have attempted all rounds)
-      const allPlayersFinished = players.every((p) => playerHits[p.id]?.length > 0)
+      // Check if game over
+      if (currentRound === 21 && currentPlayerIndex === players.length - 1) {
+        // Game complete
+        const winner = players.reduce((best, p) =>
+          (playerScores[p.id] || 0) > (playerScores[best.id] || 0) ? p : best
+        )
+        navigate('/game-complete', {
+          state: {
+            winner,
+            winnerPoints: playerScores[winner.id] || 0,
+            totalPlayers: players.length,
+            totalRounds: 21,
+            totalAttempts: Object.values(playerHits).flat().length + newHits.length,
+            totalHits: newHits.filter((h) => h !== 'M').length,
+            totalMisses: newHits.filter((h) => h === 'M').length,
+            bullseyeBuybackEnabled: false,
+            bullseyeRounds: null,
+          },
+        })
+        return
+      }
+
+      // Move to next player
       const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
       if (nextPlayerIndex === 0) {
-        if (allPlayersFinished) {
-          // Game over - winner is highest score
-          const winner = players.reduce((best, p) =>
-            (newPlayerScores[p.id] || 0) > (newPlayerScores[best.id] || 0) ? p : best
-          )
-          navigate('/game-complete', {
-            state: {
-              winner,
-              winnerPoints: newPlayerScores[winner.id] || 0,
-              totalPlayers: players.length,
-              totalRounds: currentRound,
-              totalAttempts: Object.values(playerHits).flat().length + newHits.length,
-              totalHits: currentHits.length,
-              totalMisses: newHits.filter((h) => h === 'M').length,
-              bullseyeBuybackEnabled: false,
-              bullseyeRounds: null,
-            },
-          })
-          return
-        }
         setCurrentRound((r) => r + 1)
       }
       setCurrentPlayerIndex(nextPlayerIndex)
@@ -106,7 +128,17 @@ export function DoublesPage({ players }: DoublesProps) {
 
   function removeLastHit() {
     if (currentHits.length > 0) {
+      const removedHit = currentHits[currentHits.length - 1]
       setCurrentHits(currentHits.slice(0, -1))
+
+      // If we removed a scoring hit, subtract from score
+      const hitValue = getHitValue(removedHit, currentRound)
+      if (hitValue > 0) {
+        setPlayerScores({
+          ...playerScores,
+          [currentPlayer.id]: Math.max(0, (playerScores[currentPlayer.id] || 0) - hitValue),
+        })
+      }
     }
   }
 
@@ -137,6 +169,12 @@ export function DoublesPage({ players }: DoublesProps) {
         title: 'Doubles',
         currentPlayer: currentPlayer.name,
         round: currentRound,
+        stats: currentRound <= 21 ? [
+          {
+            label: 'Target',
+            value: targetDouble,
+          },
+        ] : undefined,
       }}
       players={playerDataForTemplate}
       currentPlayerIndex={currentPlayerIndex}

@@ -53,6 +53,8 @@ export function HomePage() {
         state: {
           players,
           startingScore: 501,
+          legsPerSet: 3,
+          setsPerGame: 3,
         },
       })
     } else if (gameType === 'score-killer') {
@@ -172,6 +174,8 @@ export function CreateGamePage() {
   
   // X01-specific
   const [x01Value, setX01Value] = useState<number | ''>(501)
+  const [legsPerSet, setLegsPerSet] = useState<number | ''>(3)
+  const [setsPerGame, setSetsPerGame] = useState<number | ''>(3)
   const [doubleIn, setDoubleIn] = useState(false)
   const [doubleOut, setDoubleOut] = useState(true)
   
@@ -331,6 +335,8 @@ export function CreateGamePage() {
         break
       case 'x01':
         gameState.startingScore = Number(x01Value)
+        gameState.legsPerSet = Number(legsPerSet)
+        gameState.setsPerGame = Number(setsPerGame)
         gameState.doubleIn = doubleIn
         gameState.doubleOut = doubleOut
         route = '/x01'
@@ -602,6 +608,32 @@ export function CreateGamePage() {
                 onChange={(event) => {
                   const value = event.target.value
                   setX01Value(value === '' ? '' : Number(value))
+                }}
+              />
+            </div>
+            <div className="form-row">
+              <label htmlFor="legs-per-set">Legs to win a set</label>
+              <input
+                id="legs-per-set"
+                type="number"
+                min={1}
+                value={legsPerSet}
+                onChange={(event) => {
+                  const value = event.target.value
+                  setLegsPerSet(value === '' ? '' : Number(value))
+                }}
+              />
+            </div>
+            <div className="form-row">
+              <label htmlFor="sets-per-game">Sets to win the game</label>
+              <input
+                id="sets-per-game"
+                type="number"
+                min={1}
+                value={setsPerGame}
+                onChange={(event) => {
+                  const value = event.target.value
+                  setSetsPerGame(value === '' ? '' : Number(value))
                 }}
               />
             </div>
