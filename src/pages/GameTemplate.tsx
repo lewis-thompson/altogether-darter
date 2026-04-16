@@ -137,7 +137,7 @@ export function GameTemplate({
                         {index === currentPlayerIndex && currentHits.length > 0
                           ? currentHits.join(' | ')
                           : lastVisitHits[player.id]?.length
-                            ? lastVisitHits[player.id].join(' | ')
+                            ? lastVisitHits[player.id].slice(-3).join(' | ')
                             : '—'}
                       </span>
                     </div>

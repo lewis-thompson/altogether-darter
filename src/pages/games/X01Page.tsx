@@ -101,10 +101,14 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
       })
       setCurrentHits([])
       setVisitScoreHistory([startingScore])
-      setPlayerScores({
-        ...playerScores,
-        [currentPlayer.id]: startingScore, // Reset for next leg
+      
+      // Reset all players' scores for the new leg
+      const resetScores: Record<number, number> = {}
+      players.forEach((p) => {
+        resetScores[p.id] = startingScore
       })
+      setPlayerScores(resetScores)
+      
       setLegsWon(newLegsWon)
       setVisitStartScore(startingScore)
 

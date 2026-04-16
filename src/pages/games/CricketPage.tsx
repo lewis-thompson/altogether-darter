@@ -329,6 +329,7 @@ export function CricketPage({ players }: CricketProps) {
                 {CRICKET_NUMBERS.map((num) => {
                   const hits = playerNumberHits[playerObj.id]?.[num] || 0
                   const isOpen = hits >= 3
+                  const isClosed = isNumberClosed(num)
                   return (
                     <td
                       key={num}
@@ -336,11 +337,11 @@ export function CricketPage({ players }: CricketProps) {
                         textAlign: 'center',
                         padding: '6px',
                         borderRight: '1px solid #eee',
-                        backgroundColor: isNumberClosed(num) ? '#d4edda' : isOpen ? '#fff3cd' : '#f0f0f0',
+                        backgroundColor: isClosed ? '#ffcccc' : isOpen ? '#d4edda' : '#f0f0f0',
                         fontWeight: '600',
                       }}
                     >
-                      {isNumberClosed(num) ? '✗' : isOpen ? '✓' : `${hits}/3`}
+                      {isClosed ? '✗' : isOpen ? '✓' : `${hits}/3`}
                     </td>
                   )
                 })}

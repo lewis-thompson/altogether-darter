@@ -55,14 +55,30 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
   }
 
   function getDisplayHits(totalHits: number): string {
-    // Display hits: if totalHits < hitsPerNumber, show as X/hitsPerNumber
-    // If totalHits >= hitsPerNumber, show remainder: totalHits % hitsPerNumber
-    if (totalHits < hitsPerNumber) {
-      return `${totalHits}/${hitsPerNumber}`
+    const hitsRequired = hitsPerNumber
+    
+    // If we haven't hit it the required number of times yet, show current count
+    if (totalHits < hitsRequired) {
+      return `${totalHits}/${hitsRequired}`
     }
-    // Once we've hit the required number, modulo back down
-    const remainder = totalHits % hitsPerNumber
-    return remainder === 0 ? `0/${hitsPerNumber}` : `${remainder}/${hitsPerNumber}`
+    
+    // If we've hit it exactly the required number of times
+    if (totalHits === hitsRequired) {
+      return `${hitsRequired}/${hitsRequired}`
+    }
+    
+    // If we've overshot, count down: (3 - (totalHits % 3)) / 3
+    const remainder = totalHits % hitsRequired
+    if (remainder === 0) {
+      return `0/${hitsRequired}`
+    }
+    const displayCount = hitsRequired - remainder
+    return `${displayCount}/${hitsRequired}`
+  }
+
+  function isNumberComplete(totalHits: number): boolean {
+    // Only show as complete/green if exactly hitsPerNumber hits
+    return totalHits === hitsPerNumber
   }
 
   function addHit(target: 'miss' | 'bull' | number) {
@@ -221,7 +237,7 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
           {allNumbers.map((num) => {
             const hits = playerNumberHits[player.id]?.[num] || 0
             const displayHits = getDisplayHits(hits)
-            const isComplete = hits >= hitsPerNumber
+            const isComplete = isNumberComplete(hits)
             return (
               <div
                 key={num}
