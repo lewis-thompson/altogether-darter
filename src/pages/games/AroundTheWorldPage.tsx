@@ -16,6 +16,7 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
   const [currentRound, setCurrentRound] = useState(1)
   const [selectedModifier, setSelectedModifier] = useState<'double' | 'treble' | null>(null)
   const [currentHits, setCurrentHits] = useState<string[]>([])
+  const [visitScoreHistory, setVisitScoreHistory] = useState<number[]>([])
 
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
@@ -34,7 +35,7 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
 
   function addHit(target: 'miss' | 'bull' | number) {
     if (currentHits.length >= 3) return
-    const currentScore = playerScores[currentPlayer.id] || 0
+    const currentScore = playerScores[currentPlayer.id] || 1
     const darts = currentHits.length
 
     // Check if hit matches current target
@@ -55,7 +56,9 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
 
       const newScore = currentScore + segmentsAdvanced
       const newHits = [...currentHits, String(target)]
+      const newHistory = [...visitScoreHistory, newScore]
       setCurrentHits(newHits)
+      setVisitScoreHistory(newHistory)
       setSelectedModifier(null)
 
       if (darts === 2) {
@@ -69,6 +72,7 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
           [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
         })
         setCurrentHits([])
+        setVisitScoreHistory([])
 
         // Check if won
         if (newScore >= 22) {
@@ -105,7 +109,9 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
     } else {
       // Missed the target
       const newHits = [...currentHits, 'M']
+      const newHistory = [...visitScoreHistory, currentScore] // Score doesn't change on miss
       setCurrentHits(newHits)
+      setVisitScoreHistory(newHistory)
       setSelectedModifier(null)
 
       if (darts === 2) {
@@ -115,6 +121,7 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
           [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
         })
         setCurrentHits([])
+        setVisitScoreHistory([])
 
         // Move to next player
         const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
@@ -127,9 +134,18 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
   }
 
   function removeLastHit() {
-    if (currentHits.length > 0) {
-      setCurrentHits(currentHits.slice(0, -1))
-    }
+    if (currentHits.length === 0) return
+
+    const newHits = currentHits.slice(0, -1)
+    const newHistory = visitScoreHistory.slice(0, -1)
+    const previousScore = newHistory.length > 0 ? newHistory[newHistory.length - 1] : (playerScores[currentPlayer.id] || 1)
+
+    setCurrentHits(newHits)
+    setVisitScoreHistory(newHistory)
+    setPlayerScores({
+      ...playerScores,
+      [currentPlayer.id]: previousScore,
+    })
   }
 
   function toggleModifier(modifier: 'double' | 'treble') {

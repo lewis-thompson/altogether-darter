@@ -78,6 +78,31 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
       })
     }
 
+    // Check for Shanghai (single, double, triple of same number in one turn)
+    const isShanghai = checkShanghai(newHits, targetNumber)
+    if (isShanghai) {
+      // Instant win!
+      setPlayerHits({
+        ...playerHits,
+        [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
+      })
+
+      navigate('/game-complete', {
+        state: {
+          winner: currentPlayer,
+          winnerPoints: playerScores[currentPlayer.id] || 0,
+          totalPlayers: players.length,
+          totalRounds: currentRound,
+          totalAttempts: Object.values(playerHits).flat().length + newHits.length,
+          totalHits: newHits.filter((h) => h !== 'M').length,
+          totalMisses: newHits.filter((h) => h === 'M').length,
+          bullseyeBuybackEnabled: false,
+          bullseyeRounds: null,
+        },
+      })
+      return
+    }
+
     // Check if visit is over (3 darts or all 3 spent)
     if (newHits.length === 3) {
       setPlayerHits({
@@ -86,7 +111,7 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
       })
       setCurrentHits([])
 
-      // Check if game over
+      // Check if game over (all rounds complete)
       if (currentRound === 20 && currentPlayerIndex === players.length - 1) {
         // Game complete
         const winner = players.reduce((best, p) =>
@@ -115,6 +140,40 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
       }
       setCurrentPlayerIndex(nextPlayerIndex)
     }
+  }
+
+  function checkShanghai(hits: string[], targetNum: number): boolean {
+    // Shanghai means hitting single, double, and triple of the same number in one turn
+    let hasSingle = false
+    let hasDouble = false
+    let hasTriple = false
+
+    for (const hit of hits) {
+      if (hit === 'M' || hit === 'SB' || hit === 'DB') continue
+      
+      // Extract number and modifier from hit string
+      let modifier = ''
+      let hitNum = 0
+
+      if (hit.startsWith('D')) {
+        modifier = 'D'
+        hitNum = parseInt(hit.substring(1))
+      } else if (hit.startsWith('T')) {
+        modifier = 'T'
+        hitNum = parseInt(hit.substring(1))
+      } else {
+        modifier = 'S'
+        hitNum = parseInt(hit)
+      }
+
+      if (hitNum === targetNum) {
+        if (modifier === 'S') hasSingle = true
+        if (modifier === 'D') hasDouble = true
+        if (modifier === 'T') hasTriple = true
+      }
+    }
+
+    return hasSingle && hasDouble && hasTriple
   }
 
   function removeLastHit() {

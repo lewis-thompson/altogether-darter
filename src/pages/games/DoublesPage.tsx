@@ -45,10 +45,10 @@ export function DoublesPage({ players }: DoublesProps) {
 
   function getHitValue(hitStr: string, round: number): number {
     if (hitStr === 'M' || hitStr === 'SB') return 0
-    if (hitStr === 'DB' && round === 21) return 50
+    if (hitStr === 'DB' && round === 21) return 1
     if (hitStr.startsWith('D')) {
       const num = parseInt(hitStr.slice(1), 10)
-      if (num === targetNumber) return num * 2
+      if (num === targetNumber) return 1 // 1 point for correct double
     }
     return 0
   }
@@ -66,11 +66,11 @@ export function DoublesPage({ players }: DoublesProps) {
     } else if (target === 'bull') {
       // Bull is only a target on round 21
       isOnTarget = currentRound === 21
-      if (isOnTarget) hitValue = 50
+      if (isOnTarget) hitValue = 1 // 1 point for bullseye
     } else if (currentRound <= 20 && target === targetNumber && selectedModifier === 'double') {
-      // Hit the target double
+      // Hit the target double - 1 point
       isOnTarget = true
-      hitValue = target * 2
+      hitValue = 1
     }
 
     const hitStr = formatHit(target, selectedModifier)

@@ -21,6 +21,8 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
   const [currentRound, setCurrentRound] = useState(1)
   const [selectedModifier, setSelectedModifier] = useState<'double' | 'treble' | null>(null)
   const [currentHits, setCurrentHits] = useState<string[]>([])
+  const [visitScoreHistory, setVisitScoreHistory] = useState<number[]>([startingScore])
+  const [legStartPlayerIndex, setLegStartPlayerIndex] = useState(0)
 
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
@@ -76,7 +78,9 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
     }
 
     const newHits = [...currentHits, hitStr]
+    const newScoreHistory = [...visitScoreHistory, isBust ? visitStartScore : newScore]
     setCurrentHits(newHits)
+    setVisitScoreHistory(newScoreHistory)
     setSelectedModifier(null)
 
     if (!isBust) {
@@ -96,6 +100,7 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
         [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
       })
       setCurrentHits([])
+      setVisitScoreHistory([startingScore])
       setPlayerScores({
         ...playerScores,
         [currentPlayer.id]: startingScore, // Reset for next leg
@@ -130,20 +135,26 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
           return
         }
 
-        // Reset leg counts for new set
+        // Reset leg counts for new set and rotate first player
         const resetLegsWon = { ...newLegsWon }
         players.forEach((p) => {
           resetLegsWon[p.id] = 0
         })
         setLegsWon(resetLegsWon)
+
+        // First player of new set: player that went second in first game of previous set
+        const newSetStartIndex = (legStartPlayerIndex + 1) % players.length
+        setLegStartPlayerIndex(newSetStartIndex)
+        setCurrentPlayerIndex(newSetStartIndex)
+        setCurrentRound((r) => r + 1)
+        return
       }
 
-      // Move to next player
-      const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
-      if (nextPlayerIndex === 0) {
-        setCurrentRound((r) => r + 1)
-      }
-      setCurrentPlayerIndex(nextPlayerIndex)
+      // First player of new leg: player that went second in previous leg
+      const newLegStartIndex = (legStartPlayerIndex + 1) % players.length
+      setLegStartPlayerIndex(newLegStartIndex)
+      setCurrentPlayerIndex(newLegStartIndex)
+      setCurrentRound((r) => r + 1)
       return
     }
 
@@ -162,6 +173,7 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
         [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
       })
       setCurrentHits([])
+      setVisitScoreHistory([isBust ? visitStartScore : newScore])
       setVisitStartScore(isBust ? visitStartScore : newScore)
 
       // Move to next player
@@ -174,9 +186,18 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
   }
 
   function removeLastHit() {
-    if (currentHits.length > 0) {
-      setCurrentHits(currentHits.slice(0, -1))
-    }
+    if (currentHits.length === 0) return
+
+    const newHits = currentHits.slice(0, -1)
+    const newScoreHistory = visitScoreHistory.slice(0, -1)
+    const previousScore = newScoreHistory[newScoreHistory.length - 1] ?? visitStartScore
+
+    setCurrentHits(newHits)
+    setVisitScoreHistory(newScoreHistory)
+    setPlayerScores({
+      ...playerScores,
+      [currentPlayer.id]: previousScore,
+    })
   }
 
   function toggleModifier(modifier: 'double' | 'treble') {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks'
+import { GameTemplate } from '../GameTemplate'
 import type { Player } from '../../types'
 
 interface CricketProps {
@@ -9,8 +10,6 @@ interface CricketProps {
 
 // Classic Cricket: 15, 16, 17, 18, 19, 20, Bull
 const CRICKET_NUMBERS = [15, 16, 17, 18, 19, 20, 0] // 0 represents Bull
-
-type NumberStatus = 'open' | 'closed' | 'not-started'
 
 export function CricketPage({ players }: CricketProps) {
   const { user } = useAuth()
@@ -21,7 +20,7 @@ export function CricketPage({ players }: CricketProps) {
   const [selectedModifier, setSelectedModifier] = useState<'double' | 'treble' | null>(null)
   const [currentHits, setCurrentHits] = useState<string[]>([])
 
-  // Track hits per number per player: { [playerId]: { [number]: hitCount } }
+  // Track hits per number per player
   const [playerNumberHits, setPlayerNumberHits] = useState<Record<number, Record<number, number>>>(() =>
     players.reduce((acc, player) => {
       acc[player.id] = {}
@@ -32,7 +31,7 @@ export function CricketPage({ players }: CricketProps) {
     }, {} as Record<number, Record<number, number>>)
   )
 
-  // Track points per number per player: { [playerId]: { [number]: points } }
+  // Track points per number per player
   const [playerNumberPoints, setPlayerNumberPoints] = useState<Record<number, Record<number, number>>>(() =>
     players.reduce((acc, player) => {
       acc[player.id] = {}
@@ -60,31 +59,29 @@ export function CricketPage({ players }: CricketProps) {
     return (playerNumberHits[playerId]?.[number] || 0) >= 3
   }
 
+  // Determine how many players have opened a number
+  function countPlayersWithOpen(number: number): number {
+    return players.filter((p) => isNumberOpen(p.id, number)).length
+  }
+
   // Determine if a number is closed (all players have opened it)
   function isNumberClosed(number: number): boolean {
     return players.every((p) => isNumberOpen(p.id, number))
   }
 
-  // Get number status
-  function getNumberStatus(number: number): NumberStatus {
-    if (isNumberClosed(number)) return 'closed'
-    if (players.some((p) => isNumberOpen(p.id, number))) return 'open'
-    return 'not-started'
-  }
-
-  // Check if game is over
-  function isGameOver(): boolean {
-    // All numbers must be closed
-    const allClosed = CRICKET_NUMBERS.every((num) => isNumberClosed(num))
-    return allClosed
-  }
-
-  // Get winner (player with most points if game is over)
-  function getWinner(): Player | null {
-    if (!isGameOver()) return null
-    return players.reduce((best, p) =>
-      (playerScores[p.id] ?? 0) > (playerScores[best.id] ?? 0) ? p : best
-    )
+  // Check if game is over and if so, who won
+  function getGameOverInfo(): { isOver: boolean; winner: Player | null } {
+    for (const player of players) {
+      const hasAllNumbersOpen = CRICKET_NUMBERS.every((num) => isNumberOpen(player.id, num))
+      if (hasAllNumbersOpen) {
+        // Check if this player has the most points
+        const isWinner = players.every((p) => (playerScores[player.id] ?? 0) >= (playerScores[p.id] ?? 0))
+        if (isWinner) {
+          return { isOver: true, winner: player }
+        }
+      }
+    }
+    return { isOver: false, winner: null }
   }
 
   function formatHit(target: 'miss' | 'bull' | number, modifier: 'double' | 'treble' | null): string {
@@ -103,7 +100,8 @@ export function CricketPage({ players }: CricketProps) {
 
   function addHit(target: 'miss' | 'bull' | number) {
     if (currentHits.length >= 3) return
-    if (isGameOver()) return
+    const { isOver } = getGameOverInfo()
+    if (isOver) return
 
     const hitStr = formatHit(target, selectedModifier)
     const newHits = [...currentHits, hitStr]
@@ -121,35 +119,61 @@ export function CricketPage({ players }: CricketProps) {
 
       setPlayerNumberHits(newPlayerNumberHits)
 
-      // Calculate score change
+      // Calculate points
       const wasOpen = oldHits >= 3
       const isNowOpen = newPlayerNumberHits[currentPlayer.id][targetNum] >= 3
-      const isClosed = isNumberClosed(targetNum)
-      let pointsToAdd = 0
+      const wasClosed = isNumberClosed(targetNum)
+      const isNowLastToOpen = countPlayersWithOpen(targetNum) === players.length - 1 && isNowOpen && !wasOpen
 
-      if (isNowOpen && !isClosed) {
-        // Number is newly open for this player and not closed for all
-        // Award points
+      // Points logic: Can score if:
+      // 1. Already open for this player AND
+      // 2. Number is already closed for all players (opened before this player) OR
+      // 3. This is NOT the last player to open it
+      if (isNowOpen && !wasClosed && !isNowLastToOpen) {
         const newPlayerNumberPoints = { ...playerNumberPoints }
         newPlayerNumberPoints[currentPlayer.id] = { ...newPlayerNumberPoints[currentPlayer.id] }
         const pointValue = targetNum === 0 ? 50 : targetNum
-        
+
         if (!wasOpen) {
-          // Number was just opened, only award for the hits above 3
-          pointsToAdd = pointValue * (newPlayerNumberHits[currentPlayer.id][targetNum] - 3)
+          // Number was just opened, only award for excess hits
+          const excessHits = newPlayerNumberHits[currentPlayer.id][targetNum] - 3
+          const pointsToAdd = pointValue * excessHits
+          newPlayerNumberPoints[currentPlayer.id][targetNum] = (newPlayerNumberPoints[currentPlayer.id][targetNum] || 0) + pointsToAdd
+
+          const newScore = (playerScores[currentPlayer.id] || 0) + pointsToAdd
+          setPlayerScores({
+            ...playerScores,
+            [currentPlayer.id]: newScore,
+          })
         } else {
-          // Number was already open, award for all multiplier hits
-          pointsToAdd = pointValue * multiplier
+          // Already open, award for multiplier hits
+          const pointsToAdd = pointValue * multiplier
+          newPlayerNumberPoints[currentPlayer.id][targetNum] = (newPlayerNumberPoints[currentPlayer.id][targetNum] || 0) + pointsToAdd
+
+          const newScore = (playerScores[currentPlayer.id] || 0) + pointsToAdd
+          setPlayerScores({
+            ...playerScores,
+            [currentPlayer.id]: newScore,
+          })
         }
 
-        newPlayerNumberPoints[currentPlayer.id][targetNum] = (newPlayerNumberPoints[currentPlayer.id][targetNum] || 0) + pointsToAdd
         setPlayerNumberPoints(newPlayerNumberPoints)
+      } else if (isNowOpen && wasClosed && !wasOpen) {
+        // This number was already closed, score the full excess
+        const newPlayerNumberPoints = { ...playerNumberPoints }
+        newPlayerNumberPoints[currentPlayer.id] = { ...newPlayerNumberPoints[currentPlayer.id] }
+        const pointValue = targetNum === 0 ? 50 : targetNum
+        const excessHits = newPlayerNumberHits[currentPlayer.id][targetNum] - 3
+        const pointsToAdd = pointValue * excessHits
+        newPlayerNumberPoints[currentPlayer.id][targetNum] = (newPlayerNumberPoints[currentPlayer.id][targetNum] || 0) + pointsToAdd
 
         const newScore = (playerScores[currentPlayer.id] || 0) + pointsToAdd
         setPlayerScores({
           ...playerScores,
           [currentPlayer.id]: newScore,
         })
+
+        setPlayerNumberPoints(newPlayerNumberPoints)
       }
     }
 
@@ -169,31 +193,83 @@ export function CricketPage({ players }: CricketProps) {
       setCurrentPlayerIndex(nextPlayerIndex)
 
       // Check if game is over
-      if (isGameOver()) {
-        const winner = getWinner()
-        if (winner) {
-          navigate('/game-complete', {
-            state: {
-              winner,
-              winnerPoints: playerScores[winner.id] || 0,
-              totalPlayers: players.length,
-              totalRounds: currentRound,
-              totalAttempts: Object.values(playerHits).flat().length + newHits.length,
-              totalHits: newHits.filter((h) => h !== 'M').length,
-              totalMisses: newHits.filter((h) => h === 'M').length,
-              bullseyeBuybackEnabled: false,
-              bullseyeRounds: null,
-            },
-          })
-        }
+      const gameOverInfo = getGameOverInfo()
+      if (gameOverInfo.isOver && gameOverInfo.winner) {
+        navigate('/game-complete', {
+          state: {
+            winner: gameOverInfo.winner,
+            winnerPoints: playerScores[gameOverInfo.winner.id] || 0,
+            totalPlayers: players.length,
+            totalRounds: currentRound,
+            totalAttempts: Object.values(playerHits).flat().length + newHits.length,
+            totalHits: newHits.filter((h) => h !== 'M').length,
+            totalMisses: newHits.filter((h) => h === 'M').length,
+            bullseyeBuybackEnabled: false,
+            bullseyeRounds: null,
+          },
+        })
       }
     }
   }
 
   function removeLastHit() {
-    if (currentHits.length > 0) {
+    if (currentHits.length === 0) return
+
+    const lastHit = currentHits[currentHits.length - 1]
+    if (lastHit === 'M') {
       setCurrentHits(currentHits.slice(0, -1))
+      return
     }
+
+    // Parse the last hit to determine which number was hit
+    let targetNum: number | null = null
+    let hitPoints = 1
+
+    if (lastHit === 'DB') {
+      targetNum = 0
+      hitPoints = 2
+    } else if (lastHit === 'SB') {
+      targetNum = 0
+      hitPoints = 1
+    } else if (lastHit.startsWith('D')) {
+      targetNum = parseInt(lastHit.substring(1))
+      hitPoints = 2
+    } else if (lastHit.startsWith('T')) {
+      targetNum = parseInt(lastHit.substring(1))
+      hitPoints = 3
+    } else {
+      targetNum = parseInt(lastHit)
+      hitPoints = 1
+    }
+
+    // Undo the hit count and points
+    if (targetNum !== null) {
+      const newPlayerNumberHits = { ...playerNumberHits }
+      newPlayerNumberHits[currentPlayer.id] = { ...newPlayerNumberHits[currentPlayer.id] }
+      const oldHits = newPlayerNumberHits[currentPlayer.id][targetNum] || 0
+      newPlayerNumberHits[currentPlayer.id][targetNum] = Math.max(0, oldHits - hitPoints)
+
+      // Also undo any points that were awarded
+      const pointValue = targetNum === 0 ? 50 : targetNum
+      const wasOpen = oldHits >= 3
+      const pointsToRemove = pointValue * hitPoints
+
+      if (wasOpen) {
+        const newPlayerNumberPoints = { ...playerNumberPoints }
+        newPlayerNumberPoints[currentPlayer.id] = { ...newPlayerNumberPoints[currentPlayer.id] }
+        newPlayerNumberPoints[currentPlayer.id][targetNum] = Math.max(0, (newPlayerNumberPoints[currentPlayer.id][targetNum] || 0) - pointsToRemove)
+        setPlayerNumberPoints(newPlayerNumberPoints)
+
+        setPlayerScores({
+          ...playerScores,
+          [currentPlayer.id]: Math.max(0, (playerScores[currentPlayer.id] || 0) - pointsToRemove),
+        })
+      }
+
+      setPlayerNumberHits(newPlayerNumberHits)
+    }
+
+    setCurrentHits(currentHits.slice(0, -1))
   }
 
   function toggleModifier(modifier: 'double' | 'treble') {
@@ -204,212 +280,114 @@ export function CricketPage({ players }: CricketProps) {
     return <div>Loading...</div>
   }
 
-  const numberButtons = [
-    ...CRICKET_NUMBERS.filter((n) => n !== 0),
-    'bull' as const,
-  ]
+  const playerDataForTemplate = players.map((player) => ({
+    id: String(player.id),
+    name: player.name,
+    hits: currentPlayerIndex === players.indexOf(player) ? currentHits : [],
+    additionalData: {
+      'Points': (playerScores[player.id] || 0).toString(),
+    },
+  }))
+
+  const renderPlayerCard = (player: any) => {
+    const playerObj = players.find(p => p.id === parseInt(player.id))
+    if (!playerObj) return null
+
+    return (
+      <>
+        <div className="template-player-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span className="template-player-name">{player.name}</span>
+          <span style={{ color: '#007bff', fontSize: '14px' }}>Points: {playerScores[playerObj.id] || 0}</span>
+        </div>
+        <div style={{ padding: '12px', overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+            <tbody>
+              <tr style={{ borderBottom: '1px solid #eee' }}>
+                <td style={{ textAlign: 'center', padding: '6px', fontWeight: '600', borderRight: '1px solid #eee', backgroundColor: '#f9f9f9', minWidth: '30px' }}>
+                  #
+                </td>
+                {CRICKET_NUMBERS.map((num) => (
+                  <td
+                    key={num}
+                    style={{
+                      textAlign: 'center',
+                      padding: '6px',
+                      borderRight: '1px solid #eee',
+                      backgroundColor: isNumberClosed(num) ? '#d4edda' : '#f0f0f0',
+                      fontWeight: '600',
+                      minWidth: '35px',
+                    }}
+                  >
+                    {num === 0 ? 'B' : num}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td style={{ textAlign: 'center', padding: '6px', fontWeight: '600', borderRight: '1px solid #eee', backgroundColor: '#f9f9f9' }}>
+                  H
+                </td>
+                {CRICKET_NUMBERS.map((num) => {
+                  const hits = playerNumberHits[playerObj.id]?.[num] || 0
+                  const isOpen = hits >= 3
+                  return (
+                    <td
+                      key={num}
+                      style={{
+                        textAlign: 'center',
+                        padding: '6px',
+                        borderRight: '1px solid #eee',
+                        backgroundColor: isNumberClosed(num) ? '#d4edda' : isOpen ? '#fff3cd' : '#f0f0f0',
+                        fontWeight: '600',
+                      }}
+                    >
+                      {isNumberClosed(num) ? '✗' : isOpen ? '✓' : `${hits}/3`}
+                    </td>
+                  )
+                })}
+              </tr>
+              <tr>
+                <td style={{ textAlign: 'center', padding: '6px', fontWeight: '600', borderRight: '1px solid #eee', backgroundColor: '#f9f9f9' }}>
+                  P
+                </td>
+                {CRICKET_NUMBERS.map((num) => {
+                  const points = playerNumberPoints[playerObj.id]?.[num] || 0
+                  return (
+                    <td
+                      key={num}
+                      style={{
+                        textAlign: 'center',
+                        padding: '6px',
+                        borderRight: '1px solid #eee',
+                        backgroundColor: isNumberClosed(num) ? '#e8f5e9' : '#f0f0f0',
+                      }}
+                    >
+                      {points > 0 ? points : '-'}
+                    </td>
+                  )
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </>
+    )
+  }
 
   return (
-    <main className="page">
-      <header className="page-header">
-        <h1>Cricket</h1>
-        <a href="/" className="home-link">Home</a>
-      </header>
-
-      <div className="page-content">
-        {/* Header section */}
-        <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ fontSize: '18px', fontWeight: '600' }}>
-              <span style={{ color: '#666' }}>Current Player:</span> <span style={{ color: '#333' }}>{currentPlayer.name}</span>
-            </div>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <div style={{ padding: '8px 12px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd' }}>
-                <span style={{ color: '#666', fontSize: '14px' }}>Round:</span> <span style={{ fontWeight: '600' }}>{currentRound}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Cricket numbers status */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
-            {CRICKET_NUMBERS.map((num) => {
-              const status = getNumberStatus(num)
-              const numStr = num === 0 ? 'Bull' : String(num)
-              const bgColor = status === 'closed' ? '#28a745' : status === 'open' ? '#ffc107' : '#e9ecef'
-              const textColor = status === 'closed' ? 'white' : status === 'open' ? '#000' : '#666'
-
-              return (
-                <div
-                  key={num}
-                  style={{
-                    padding: '8px 12px',
-                    backgroundColor: bgColor,
-                    color: textColor,
-                    borderRadius: '4px',
-                    fontWeight: '600',
-                    fontSize: '12px',
-                  }}
-                >
-                  {numStr} {status === 'closed' ? '✓' : ''}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Player Progress */}
-        <div style={{ marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>Players</h2>
-          {players.map((player) => (
-            <div key={player.id} style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'white', borderRadius: '8px', border: currentPlayerIndex === players.indexOf(player) ? '2px solid #007bff' : '1px solid #eee' }}>
-              <div style={{ fontWeight: '600', marginBottom: '12px', fontSize: '16px', display: 'flex', justifyContent: 'space-between' }}>
-                <span>{player.name}</span>
-                <span style={{ color: '#007bff', fontSize: '14px' }}>Points: {playerScores[player.id] || 0}</span>
-              </div>
-
-              {/* Cricket numbers table */}
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid #ddd' }}>
-                      <th style={{ textAlign: 'center', padding: '8px', borderRight: '1px solid #eee' }}>Number</th>
-                      {CRICKET_NUMBERS.map((num) => (
-                        <th key={num} style={{ textAlign: 'center', padding: '8px', borderRight: '1px solid #eee', minWidth: '50px' }}>
-                          {num === 0 ? 'B' : num}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ textAlign: 'center', padding: '8px', fontWeight: '600', borderRight: '1px solid #eee', backgroundColor: '#f9f9f9' }}>Hits</td>
-                      {CRICKET_NUMBERS.map((num) => {
-                        const hits = playerNumberHits[player.id]?.[num] || 0
-                        const isOpen = hits >= 3
-                        return (
-                          <td
-                            key={num}
-                            style={{
-                              textAlign: 'center',
-                              padding: '8px',
-                              borderRight: '1px solid #eee',
-                              backgroundColor: isOpen && isNumberClosed(num) ? '#d4edda' : isOpen ? '#fff3cd' : '#f0f0f0',
-                              fontWeight: '600',
-                            }}
-                          >
-                            {isOpen && isNumberClosed(num) ? '✓' : `${hits}/3`}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                    <tr>
-                      <td style={{ textAlign: 'center', padding: '8px', fontWeight: '600', borderRight: '1px solid #eee', backgroundColor: '#f9f9f9' }}>Points</td>
-                      {CRICKET_NUMBERS.map((num) => {
-                        const points = playerNumberPoints[player.id]?.[num] || 0
-                        const isOpen = (playerNumberHits[player.id]?.[num] || 0) >= 3
-                        return (
-                          <td
-                            key={num}
-                            style={{
-                              textAlign: 'center',
-                              padding: '8px',
-                              borderRight: '1px solid #eee',
-                              backgroundColor: isNumberClosed(num) ? '#e8f5e9' : '#f0f0f0',
-                              fontWeight: isOpen ? '600' : '400',
-                              color: isOpen && !isNumberClosed(num) ? '#0066cc' : '#666',
-                            }}
-                          >
-                            {points > 0 ? points : '-'}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Score input section */}
-        <div style={{ marginTop: '24px', padding: '16px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #ddd' }}>
-          <div style={{ marginBottom: '16px' }}>
-            <h3 style={{ marginBottom: '8px' }}>Current Hits: {currentHits.join(', ') || 'none'}</h3>
-            <button onClick={removeLastHit} disabled={currentHits.length === 0} style={{ marginBottom: '12px', padding: '8px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', opacity: currentHits.length === 0 ? 0.5 : 1 }}>
-              Remove Last Hit
-            </button>
-          </div>
-
-          {/* Modifiers */}
-          <div style={{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => toggleModifier('double')}
-              style={{
-                padding: '10px 16px',
-                backgroundColor: selectedModifier === 'double' ? '#007bff' : '#e9ecef',
-                color: selectedModifier === 'double' ? 'white' : '#333',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: '600',
-              }}
-            >
-              Double
-            </button>
-            <button
-              onClick={() => toggleModifier('treble')}
-              style={{
-                padding: '10px 16px',
-                backgroundColor: selectedModifier === 'treble' ? '#007bff' : '#e9ecef',
-                color: selectedModifier === 'treble' ? 'white' : '#333',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: '600',
-              }}
-            >
-              Treble
-            </button>
-          </div>
-
-          {/* Number buttons */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(50px, 1fr))', gap: '8px' }}>
-            {numberButtons.map((num, index) => (
-              <button
-                key={index}
-                onClick={() => addHit(num === 'bull' ? 'bull' : num)}
-                style={{
-                  padding: '12px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  fontSize: '14px',
-                }}
-              >
-                {num === 'bull' ? 'Bull' : num}
-              </button>
-            ))}
-            <button
-              onClick={() => addHit('miss')}
-              style={{
-                padding: '12px',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                fontSize: '14px',
-              }}
-            >
-              Miss
-            </button>
-          </div>
-        </div>
-      </div>
-    </main>
+    <GameTemplate
+      headerConfig={{
+        title: 'Cricket',
+        currentPlayer: currentPlayer.name,
+        round: currentRound,
+      }}
+      players={playerDataForTemplate}
+      currentPlayerIndex={currentPlayerIndex}
+      currentHits={currentHits}
+      onAddScore={addHit}
+      onRemoveLastHit={removeLastHit}
+      onToggleModifier={toggleModifier}
+      selectedModifier={selectedModifier}
+      renderPlayerCard={renderPlayerCard}
+    />
   )
 }

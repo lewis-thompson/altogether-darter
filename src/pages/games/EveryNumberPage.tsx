@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks'
+import { GameTemplate } from '../GameTemplate'
 import type { Player } from '../../types'
 
 interface EveryNumberProps {
@@ -53,25 +54,29 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
     return 1
   }
 
-  function getDisplayHits(totalHits: number): number {
-    // Display hits modulo hitsPerNumber
-    // If totalHits = 4 and hitsPerNumber = 3: 4 % 3 = 1, so display 1/3
-    // If totalHits = 5 and hitsPerNumber = 3: 5 % 3 = 2, so display 2/3
-    // If totalHits = 6 and hitsPerNumber = 3: 6 % 3 = 0, so display 0/3
-    return totalHits % hitsPerNumber
+  function getDisplayHits(totalHits: number): string {
+    // Display hits: if totalHits < hitsPerNumber, show as X/hitsPerNumber
+    // If totalHits >= hitsPerNumber, show remainder: totalHits % hitsPerNumber
+    if (totalHits < hitsPerNumber) {
+      return `${totalHits}/${hitsPerNumber}`
+    }
+    // Once we've hit the required number, modulo back down
+    const remainder = totalHits % hitsPerNumber
+    return remainder === 0 ? `0/${hitsPerNumber}` : `${remainder}/${hitsPerNumber}`
   }
 
   function addHit(target: 'miss' | 'bull' | number) {
     if (currentHits.length >= 3) return
     if (target === 'miss') {
-      setCurrentHits([...currentHits, 'M'])
+      const newHits = [...currentHits, 'M']
+      setCurrentHits(newHits)
       setSelectedModifier(null)
 
       if (currentHits.length === 2) {
         // End of visit
         setPlayerHits({
           ...playerHits,
-          [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...currentHits, 'M'],
+          [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
         })
         setCurrentHits([])
 
@@ -151,9 +156,44 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
   }
 
   function removeLastHit() {
-    if (currentHits.length > 0) {
+    if (currentHits.length === 0) return
+
+    const lastHit = currentHits[currentHits.length - 1]
+    if (lastHit === 'M') {
       setCurrentHits(currentHits.slice(0, -1))
+      return
     }
+
+    // Parse the last hit to determine which number was hit
+    let targetNum: number | null = null
+    let hitPoints = 1
+
+    if (lastHit === 'DB') {
+      targetNum = 0
+      hitPoints = 2
+    } else if (lastHit === 'SB') {
+      targetNum = 0
+      hitPoints = 1
+    } else if (lastHit.startsWith('D')) {
+      targetNum = parseInt(lastHit.substring(1))
+      hitPoints = 2
+    } else if (lastHit.startsWith('T')) {
+      targetNum = parseInt(lastHit.substring(1))
+      hitPoints = 3
+    } else {
+      targetNum = parseInt(lastHit)
+      hitPoints = 1
+    }
+
+    // Undo the hit count
+    if (targetNum !== null) {
+      const newPlayerNumberHits = { ...playerNumberHits }
+      newPlayerNumberHits[currentPlayer.id] = { ...newPlayerNumberHits[currentPlayer.id] }
+      newPlayerNumberHits[currentPlayer.id][targetNum] = Math.max(0, (newPlayerNumberHits[currentPlayer.id][targetNum] || 0) - hitPoints)
+      setPlayerNumberHits(newPlayerNumberHits)
+    }
+
+    setCurrentHits(currentHits.slice(0, -1))
   }
 
   function toggleModifier(modifier: 'double' | 'treble') {
@@ -164,149 +204,63 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
     return <div>Loading...</div>
   }
 
-  const numberButtons = [
-    ...Array.from({ length: 20 }, (_, i) => i + 1),
-    'bull' as const,
-  ]
+  const playerDataForTemplate = players.map((player) => ({
+    id: String(player.id),
+    name: player.name,
+    hits: currentPlayerIndex === players.indexOf(player) ? currentHits : [],
+    additionalData: {},
+  }))
 
-  return (
-    <main className="page">
-      <header className="page-header">
-        <h1>Every Number</h1>
-        <a href="/" className="home-link">Home</a>
-      </header>
-
-      <div className="page-content">
-        {/* Header section */}
-        <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ fontSize: '18px', fontWeight: '600' }}>
-              <span style={{ color: '#666' }}>Current Player:</span> <span style={{ color: '#333' }}>{currentPlayer.name}</span>
-            </div>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <div style={{ padding: '8px 12px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd' }}>
-                <span style={{ color: '#666', fontSize: '14px' }}>Round:</span> <span style={{ fontWeight: '600' }}>{currentRound}</span>
-              </div>
-              <div style={{ padding: '8px 12px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd' }}>
-                <span style={{ color: '#666', fontSize: '14px' }}>Hits per Number:</span> <span style={{ fontWeight: '600' }}>{hitsPerNumber}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Player Number Progress - Only showing names and progress */}
-        <div style={{ marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>Player Progress</h2>
-          {players.map((player) => (
-            <div key={player.id} style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'white', borderRadius: '8px', border: currentPlayerIndex === players.indexOf(player) ? '2px solid #007bff' : '1px solid #eee' }}>
-              <div style={{ fontWeight: '600', marginBottom: '12px', fontSize: '16px' }}>{player.name}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(45px, 1fr))', gap: '6px' }}>
-                {allNumbers.map((num) => {
-                  const hits = playerNumberHits[player.id]?.[num] || 0
-                  const displayHits = getDisplayHits(hits)
-                  const isComplete = hits >= hitsPerNumber
-                  return (
-                    <div
-                      key={num}
-                      style={{
-                        padding: '10px',
-                        backgroundColor: isComplete ? '#d4edda' : '#f0f0f0',
-                        border: '1px solid #ccc',
-                        borderRadius: '4px',
-                        textAlign: 'center',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                      }}
-                    >
-                      <div>{num === 0 ? 'B' : num}</div>
-                      <div style={{ fontSize: '11px', marginTop: '2px' , color: '#666' }}>{displayHits}/{hitsPerNumber}</div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Score input section */}
-        <div style={{ marginTop: '24px', padding: '16px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #ddd' }}>
-          <div style={{ marginBottom: '16px' }}>
-            <h3 style={{ marginBottom: '8px' }}>Current Hits: {currentHits.join(', ') || 'none'}</h3>
-            <button onClick={removeLastHit} disabled={currentHits.length === 0} style={{ marginBottom: '12px', padding: '8px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', opacity: currentHits.length === 0 ? 0.5 : 1 }}>
-              Remove Last Hit
-            </button>
-          </div>
-
-          {/* Modifiers */}
-          <div style={{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => toggleModifier('double')}
-              style={{
-                padding: '10px 16px',
-                backgroundColor: selectedModifier === 'double' ? '#007bff' : '#e9ecef',
-                color: selectedModifier === 'double' ? 'white' : '#333',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: '600',
-              }}
-            >
-              Double
-            </button>
-            <button
-              onClick={() => toggleModifier('treble')}
-              style={{
-                padding: '10px 16px',
-                backgroundColor: selectedModifier === 'treble' ? '#007bff' : '#e9ecef',
-                color: selectedModifier === 'treble' ? 'white' : '#333',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: '600',
-              }}
-            >
-              Treble
-            </button>
-          </div>
-
-          {/* Number buttons */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(50px, 1fr))', gap: '8px' }}>
-            {numberButtons.map((num, index) => (
-              <button
-                key={index}
-                onClick={() => addHit(num === 'bull' ? 'bull' : num)}
+  const renderPlayerCard = (player: any) => (
+    <>
+      <div className="template-player-header">
+        <span className="template-player-name">{player.name}</span>
+      </div>
+      <div style={{ padding: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(45px, 1fr))', gap: '6px' }}>
+          {allNumbers.map((num) => {
+            const hits = playerNumberHits[player.id]?.[num] || 0
+            const displayHits = getDisplayHits(hits)
+            const isComplete = hits >= hitsPerNumber
+            return (
+              <div
+                key={num}
                 style={{
-                  padding: '12px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  border: 'none',
+                  padding: '8px',
+                  backgroundColor: isComplete ? '#d4edda' : '#f0f0f0',
+                  border: '1px solid #ccc',
                   borderRadius: '4px',
-                  cursor: 'pointer',
+                  textAlign: 'center',
+                  fontSize: '12px',
                   fontWeight: '600',
-                  fontSize: '14px',
                 }}
               >
-                {num === 'bull' ? 'Bull' : num}
-              </button>
-            ))}
-            <button
-              onClick={() => addHit('miss')}
-              style={{
-                padding: '12px',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                fontSize: '14px',
-              }}
-            >
-              Miss
-            </button>
-          </div>
+                <div>{num === 0 ? 'B' : num}</div>
+                <div style={{ fontSize: '10px', marginTop: '2px', color: '#666' }}>{displayHits}</div>
+              </div>
+            )
+          })}
         </div>
       </div>
-    </main>
+    </>
+  )
+
+  return (
+    <GameTemplate
+      headerConfig={{
+        title: 'Every Number',
+        currentPlayer: currentPlayer.name,
+        round: currentRound,
+        stats: [{ label: 'Hits per Number', value: hitsPerNumber }],
+      }}
+      players={playerDataForTemplate}
+      currentPlayerIndex={currentPlayerIndex}
+      currentHits={currentHits}
+      onAddScore={addHit}
+      onRemoveLastHit={removeLastHit}
+      onToggleModifier={toggleModifier}
+      selectedModifier={selectedModifier}
+      renderPlayerCard={renderPlayerCard}
+    />
   )
 }

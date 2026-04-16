@@ -30,6 +30,7 @@ interface GameTemplateProps {
   onToggleModifier?: (modifier: 'double' | 'treble') => void
   selectedModifier?: 'double' | 'treble' | null
   homeLink?: string
+  renderPlayerCard?: (player: PlayerData, isActive: boolean) => React.ReactNode
 }
 
 export function GameTemplate({
@@ -43,6 +44,7 @@ export function GameTemplate({
   onToggleModifier,
   selectedModifier = null,
   homeLink = '/',
+  renderPlayerCard,
 }: GameTemplateProps) {
   const [isModifierActive, setIsModifierActive] = useState<'double' | 'treble' | null>(selectedModifier)
   const playerCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -59,6 +61,11 @@ export function GameTemplate({
   const handleToggleModifier = (modifier: 'double' | 'treble') => {
     setIsModifierActive(isModifierActive === modifier ? null : modifier)
     onToggleModifier?.(modifier)
+  }
+
+  const handleScoreClick = (value: 'miss' | 'bull' | number) => {
+    setIsModifierActive(null)
+    onAddScore(value)
   }
 
   const scoreButtons = [
@@ -116,27 +123,33 @@ export function GameTemplate({
               }}
               className={`template-player-card ${index === currentPlayerIndex ? 'active' : ''}`}
             >
-              <div className="template-player-header">
-                <span className="template-player-name">{player.name}</span>
-              </div>
-              <div className="template-player-data">
-                <div className="template-data-row">
-                  <span className="template-data-label">Hits</span>
-                  <span className="template-data-value">
-                    {index === currentPlayerIndex && currentHits.length > 0
-                      ? currentHits.join(' | ')
-                      : lastVisitHits[player.id]?.length
-                        ? lastVisitHits[player.id].join(' | ')
-                        : '—'}
-                  </span>
-                </div>
-                {Object.entries(player.additionalData).map(([key, value]) => (
-                  <div key={key} className="template-data-row">
-                    <span className="template-data-label">{key}</span>
-                    <span className="template-data-value">{value}</span>
+              {renderPlayerCard ? (
+                renderPlayerCard(player, index === currentPlayerIndex)
+              ) : (
+                <>
+                  <div className="template-player-header">
+                    <span className="template-player-name">{player.name}</span>
                   </div>
-                ))}
-              </div>
+                  <div className="template-player-data">
+                    <div className="template-data-row">
+                      <span className="template-data-label">Hits</span>
+                      <span className="template-data-value">
+                        {index === currentPlayerIndex && currentHits.length > 0
+                          ? currentHits.join(' | ')
+                          : lastVisitHits[player.id]?.length
+                            ? lastVisitHits[player.id].join(' | ')
+                            : '—'}
+                      </span>
+                    </div>
+                    {Object.entries(player.additionalData).map(([key, value]) => (
+                      <div key={key} className="template-data-row">
+                        <span className="template-data-label">{key}</span>
+                        <span className="template-data-value">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
@@ -159,7 +172,7 @@ export function GameTemplate({
           >
             Treble
           </button>
-          <button className="template-modifier-button" onClick={onRemoveLastHit} disabled={currentHits.length === 0}>
+          <button className="template-modifier-button" onClick={onRemoveLastHit}>
             Back
           </button>
         </div>
@@ -176,7 +189,7 @@ export function GameTemplate({
                 className={`template-score-button${
                   isModifierActive && typeof value === 'number' ? ' modifier-active' : ''
                 }`}
-                onClick={() => onAddScore(value)}
+                onClick={() => handleScoreClick(value)}
                 disabled={currentHits.length >= 3 || (isModifierActive === 'treble' && (isBull || isMiss))}
               >
                 {displayValue}
