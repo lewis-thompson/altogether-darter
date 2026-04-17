@@ -270,6 +270,59 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
   }
 
   function removeLastHit() {
+    if (currentHits.length === 0) {
+      // If no hits in current visit, go back to previous player's last hit
+      const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+      const prevPlayer = players[prevPlayerIndex]
+      const prevPlayerHits = playerHits[prevPlayer.id] || []
+      
+      if (prevPlayerHits.length > 0) {
+        // Go back to previous player
+        setCurrentPlayerIndex(prevPlayerIndex)
+        if (prevPlayerIndex > currentPlayerIndex) {
+          setCurrentRound((r) => Math.max(1, r - 1))
+        }
+        
+        // Set up the last visit minus one hit
+        const lastHitStr = prevPlayerHits[prevPlayerHits.length - 1]
+        const newHits = prevPlayerHits.slice(0, -1)
+        setCurrentHits(newHits)
+        
+        // Undo the hit value
+        let hitValue = 0
+        if (lastHitStr === 'M') {
+          hitValue = 0
+        } else if (lastHitStr === 'SB') {
+          hitValue = 25
+        } else if (lastHitStr === 'DB') {
+          hitValue = 50
+        } else {
+          const numberStr = lastHitStr.replace(/[DT]/g, '')
+          const baseValue = parseInt(numberStr, 10)
+          if (lastHitStr.startsWith('D')) {
+            hitValue = baseValue * 2
+          } else if (lastHitStr.startsWith('T')) {
+            hitValue = baseValue * 3
+          } else {
+            hitValue = baseValue
+          }
+        }
+        
+        setPlayerScores({
+          ...playerScores,
+          [prevPlayer.id]: Math.max(0, (playerScores[prevPlayer.id] || 0) - hitValue),
+        })
+        
+        setVisitScore(Math.max(0, lastVisitScore - hitValue))
+        
+        // Remove from player hits
+        const updatedHits = { ...playerHits }
+        updatedHits[prevPlayer.id] = newHits
+        setPlayerHits(updatedHits)
+      }
+      return
+    }
+
     if (currentHits.length > 0) {
       const removedHit = currentHits[currentHits.length - 1]
       setCurrentHits(currentHits.slice(0, -1))

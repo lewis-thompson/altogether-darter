@@ -190,7 +190,38 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
   }
 
   function removeLastHit() {
-    if (currentHits.length === 0) return
+    if (currentHits.length === 0) {
+      // If no hits in current visit, go back to previous player's last hit
+      const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+      const prevPlayer = players[prevPlayerIndex]
+      const prevPlayerHits = playerHits[prevPlayer.id] || []
+      
+      if (prevPlayerHits.length > 0) {
+        // Go back to previous player
+        setCurrentPlayerIndex(prevPlayerIndex)
+        
+        // Set up the last visit minus one hit
+        const lastHitStr = prevPlayerHits[prevPlayerHits.length - 1]
+        const newHits = prevPlayerHits.slice(0, -1)
+        setCurrentHits(newHits)
+        
+        // Get the previous player's current score
+        const prevPlayerScore = playerScores[prevPlayer.id] ?? startingScore
+        const hitValue = getHitValue(lastHitStr as 'miss' | 'bull' | number, null)
+        const restoredScore = prevPlayerScore + hitValue
+        
+        setPlayerScores({
+          ...playerScores,
+          [prevPlayer.id]: restoredScore,
+        })
+        
+        // Remove from player hits
+        const updatedHits = { ...playerHits }
+        updatedHits[prevPlayer.id] = newHits
+        setPlayerHits(updatedHits)
+      }
+      return
+    }
 
     const newHits = currentHits.slice(0, -1)
     const newScoreHistory = visitScoreHistory.slice(0, -1)

@@ -1,7 +1,8 @@
 import './App.css'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from './hooks'
 import { useLocation } from 'react-router-dom'
+import React from 'react'
 import { LoginPage } from './components'
 import {
   HomePage,
@@ -78,6 +79,72 @@ function SplitscorerPageWrapper() {
   return <SplitscorerPage players={state.players || []} />
 }
 
+function KillerPageTestWrapper() {
+  const dummyState = {
+    players: [
+      { id: 1, name: 'Player A', selectedNumber: 5 },
+      { id: 2, name: 'Player B', selectedNumber: 12 },
+      { id: 3, name: 'Player C', selectedNumber: 18 },
+      { id: 4, name: 'Player D', selectedNumber: 3 },
+    ],
+    bullseyeBuyback: false,
+    bullseyeRounds: null,
+    killerThreshold: 5,
+  }
+  return <KillerPage state={dummyState} />
+}
+
+function GameCompleteTestWrapper() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const state = location.state as any
+
+  // Create dummy game complete state
+  const dummyGameComplete = {
+    winner: { id: 1, name: 'Player A', selectedNumber: 5 },
+    winnerPoints: 25,
+    totalPlayers: 4,
+    totalRounds: 8,
+    totalAttempts: 42,
+    totalHits: 38,
+    totalMisses: 4,
+    bullseyeBuybackEnabled: false,
+    bullseyeRounds: null,
+    finalStandings: [
+      { id: 1, name: 'Player A', selectedNumber: 5, points: 25, status: 'alive' as const },
+      { id: 2, name: 'Player B', selectedNumber: 8, points: 15, status: 'alive' as const },
+      { id: 3, name: 'Player C', selectedNumber: 12, points: 8, status: 'out-recovery' as const },
+      { id: 4, name: 'Player D', selectedNumber: 20, points: -5, status: 'dead' as const },
+    ],
+  }
+
+  // Navigate to game-complete with dummy state
+  React.useEffect(() => {
+    if (!state) {
+      navigate('/game-complete', { state: dummyGameComplete, replace: true })
+    }
+  }, [navigate, state])
+
+  return state ? <GameCompletePage /> : <PageLayout title="Game Complete"><p>Loading test data...</p></PageLayout>
+}
+
+function PageLayout({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <main className="page">
+      <header className="page-header">
+        <h1>{title}</h1>
+      </header>
+      <div className="page-content">{children}</div>
+    </main>
+  )
+}
+
 function ProtectedRoute({ element }: { element: React.ReactNode }) {
   const { user, isLoading } = useAuth()
 
@@ -99,6 +166,7 @@ function App() {
       <Route path="/" element={<ProtectedRoute element={<HomePage />} />} />
       <Route path="/create-game" element={<ProtectedRoute element={<CreateGamePage />} />} />
       <Route path="/killer" element={<ProtectedRoute element={<KillerPageWrapper />} />} />
+      <Route path="/killer-test" element={<ProtectedRoute element={<KillerPageTestWrapper />} />} />
       <Route path="/dummy-killer" element={<ProtectedRoute element={<DummyKillerPage />} />} />
       <Route path="/x01" element={<ProtectedRoute element={<X01PageWrapper />} />} />
       <Route path="/around-the-world" element={<ProtectedRoute element={<AroundTheWorldPageWrapper />} />} />
@@ -109,6 +177,7 @@ function App() {
       <Route path="/shanghai" element={<ProtectedRoute element={<ShanghaiPageWrapper />} />} />
       <Route path="/splitscore" element={<ProtectedRoute element={<SplitscorerPageWrapper />} />} />
       <Route path="/game-complete" element={<ProtectedRoute element={<GameCompletePage />} />} />
+      <Route path="/game-complete-test" element={<ProtectedRoute element={<GameCompleteTestWrapper />} />} />
       <Route path="/saved-games" element={<ProtectedRoute element={<SavedGamesPage />} />} />
       <Route path="/statistics" element={<ProtectedRoute element={<StatisticsPage />} />} />
     </Routes>

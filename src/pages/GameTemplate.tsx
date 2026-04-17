@@ -31,6 +31,7 @@ interface GameTemplateProps {
   selectedModifier?: 'double' | 'treble' | null
   homeLink?: string
   renderPlayerCard?: (player: PlayerData, isActive: boolean) => React.ReactNode
+  customHeader?: React.ReactNode
 }
 
 export function GameTemplate({
@@ -45,6 +46,7 @@ export function GameTemplate({
   selectedModifier = null,
   homeLink = '/',
   renderPlayerCard,
+  customHeader,
 }: GameTemplateProps) {
   const [isModifierActive, setIsModifierActive] = useState<'double' | 'treble' | null>(selectedModifier)
   const playerCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -111,6 +113,7 @@ export function GameTemplate({
           </div>
         </div>
       </div>
+      {customHeader && <div className="template-header-custom">{customHeader}</div>}
 
       {/* Players Section - Scrollable */}
       <div className="template-players-wrapper">

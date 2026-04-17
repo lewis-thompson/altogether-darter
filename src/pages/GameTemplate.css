@@ -94,6 +94,12 @@
   background: var(--border);
 }
 
+.template-header-custom {
+  padding: 8px 0;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
 /* Players Wrapper - Scrollable Area */
 .template-players-wrapper {
   flex: 1;

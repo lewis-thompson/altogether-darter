@@ -1,37 +1,27 @@
 import { useState } from 'react'
 import { GameTemplate } from './GameTemplate'
-
-interface Player {
-  id: string
-  name: string
-  number: number
-  points: number
-  alive: boolean
-}
+import type { Player } from '../types'
 
 export function DummyKillerPage() {
   const initialPlayers: Player[] = [
-    { id: 'A', name: 'Player A', number: 4, points: 0, alive: true },
-    { id: 'B', name: 'Player B', number: 17, points: 0, alive: true },
-    { id: 'C', name: 'Player C', number: 2, points: 0, alive: true },
-    { id: 'D', name: 'Player D', number: 6, points: 0, alive: true },
-    { id: 'E', name: 'Player E', number: 20, points: 0, alive: true },
-    { id: 'F', name: 'Player F', number: 1, points: 0, alive: true },
-    { id: 'G', name: 'Player G', number: 9, points: 0, alive: true },
+    { id: 1, name: 'Player A', selectedNumber: 4 },
+    { id: 2, name: 'Player B', selectedNumber: 17 },
+    { id: 3, name: 'Player C', selectedNumber: 2 },
+    { id: 4, name: 'Player D', selectedNumber: 6 },
+    { id: 5, name: 'Player E', selectedNumber: 20 },
+    { id: 6, name: 'Player F', selectedNumber: 1 },
+    { id: 7, name: 'Player G', selectedNumber: 9 },
   ]
 
   const [players] = useState<Player[]>(initialPlayers)
-  const [playerHits, setPlayerHits] = useState<Record<string, string[]>>(
-    initialPlayers.reduce((acc, p) => ({ ...acc, [p.id]: [] }), {})
-  )
-  const [lastVisitHits, setLastVisitHits] = useState<Record<string, string[]>>(
+  const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(
     initialPlayers.reduce((acc, p) => ({ ...acc, [p.id]: [] }), {})
   )
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
   const [currentHits, setCurrentHits] = useState<string[]>([])
   const [currentRound, setCurrentRound] = useState(1)
 
-  const killerScore = 3
+  const killerThreshold = 5
   const currentPlayer = players[currentPlayerIndex]
 
   const handleAddScore = (value: 'miss' | 'bull' | number) => {
@@ -54,11 +44,6 @@ export function DummyKillerPage() {
       updatedHits[currentPlayer.id] = [...(updatedHits[currentPlayer.id] || []), ...newHits]
       setPlayerHits(updatedHits)
 
-      // Store this visit's hits as the last visit hits for this player
-      const updatedLastVisitHits = { ...lastVisitHits }
-      updatedLastVisitHits[currentPlayer.id] = newHits
-      setLastVisitHits(updatedLastVisitHits)
-
       // Reset for next player
       setCurrentHits([])
       const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
@@ -70,38 +55,57 @@ export function DummyKillerPage() {
   }
 
   const handleRemoveLastHit = () => {
-    setCurrentHits(currentHits.slice(0, -1))
+    if (currentHits.length === 0) {
+      // If no hits in current visit, go back to previous player's last hit
+      const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+      const prevPlayer = players[prevPlayerIndex]
+      const prevPlayerHits = playerHits[prevPlayer.id] || []
+      
+      if (prevPlayerHits.length > 0) {
+        // Go back to previous player
+        setCurrentPlayerIndex(prevPlayerIndex)
+        if (prevPlayerIndex > currentPlayerIndex) {
+          setCurrentRound((r) => Math.max(1, r - 1))
+        }
+        // Set up the last visit minus one hit
+        const newHits = prevPlayerHits.slice(0, -1)
+        setCurrentHits(newHits)
+        // Remove from player hits
+        const updatedHits = { ...playerHits }
+        updatedHits[prevPlayer.id] = newHits
+        setPlayerHits(updatedHits)
+      }
+    } else {
+      setCurrentHits(currentHits.slice(0, -1))
+    }
   }
 
   // Prepare template data
   const templatePlayers = players.map((player) => ({
-    id: player.id,
+    id: String(player.id),
     name: player.name,
     hits: playerHits[player.id] || [],
     additionalData: {
-      'Number': `#${player.number}`,
-      'Points': player.points,
-      'Status': player.alive ? 'Alive' : 'Dead',
+      'Number': `#${player.selectedNumber ?? '-'}`,
     },
   }))
 
   return (
     <GameTemplate
       headerConfig={{
-        title: 'Dummy Game',
+        title: 'Dummy Killer',
         currentPlayer: currentPlayer.name,
         round: currentRound,
         stats: [
           {
-            label: 'Killer Score',
-            value: killerScore,
+            label: 'Threshold',
+            value: killerThreshold,
           },
         ],
       }}
       players={templatePlayers}
       currentPlayerIndex={currentPlayerIndex}
       currentHits={currentHits}
-      lastVisitHits={lastVisitHits}
       onAddScore={handleAddScore}
       onRemoveLastHit={handleRemoveLastHit}
       homeLink="/"

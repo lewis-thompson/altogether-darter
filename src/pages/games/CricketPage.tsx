@@ -213,41 +213,72 @@ export function CricketPage({ players }: CricketProps) {
   }
 
   function removeLastHit() {
-    if (currentHits.length === 0) return
-
-    const lastHit = currentHits[currentHits.length - 1]
-    if (lastHit === 'M') {
-      setCurrentHits(currentHits.slice(0, -1))
+    if (currentHits.length === 0) {
+      // If no hits in current visit, go back to previous player's last hit
+      const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+      const prevPlayer = players[prevPlayerIndex]
+      const prevPlayerHits = playerHits[prevPlayer.id] || []
+      
+      if (prevPlayerHits.length > 0) {
+        // Go back to previous player
+        setCurrentPlayerIndex(prevPlayerIndex)
+        if (prevPlayerIndex > currentPlayerIndex) {
+          setCurrentRound((r) => Math.max(1, r - 1))
+        }
+        
+        // Set up the last visit minus one hit
+        const lastHitStr = prevPlayerHits[prevPlayerHits.length - 1]
+        const newHits = prevPlayerHits.slice(0, -1)
+        setCurrentHits(newHits)
+        
+        // Undo the hit for that player
+        undoSingleHit(prevPlayer.id, lastHitStr)
+        
+        // Remove from player hits
+        const updatedHits = { ...playerHits }
+        updatedHits[prevPlayer.id] = newHits
+        setPlayerHits(updatedHits)
+      }
       return
     }
 
-    // Parse the last hit to determine which number was hit
+    const lastHit = currentHits[currentHits.length - 1]
+    setCurrentHits(currentHits.slice(0, -1))
+    undoSingleHit(currentPlayer.id, lastHit)
+  }
+
+  function undoSingleHit(playerId: number, hitStr: string) {
+    if (hitStr === 'M') {
+      return
+    }
+
+    // Parse the hit to determine which number was hit
     let targetNum: number | null = null
     let hitPoints = 1
 
-    if (lastHit === 'DB') {
+    if (hitStr === 'DB') {
       targetNum = 0
       hitPoints = 2
-    } else if (lastHit === 'SB') {
+    } else if (hitStr === 'SB') {
       targetNum = 0
       hitPoints = 1
-    } else if (lastHit.startsWith('D')) {
-      targetNum = parseInt(lastHit.substring(1))
+    } else if (hitStr.startsWith('D')) {
+      targetNum = parseInt(hitStr.substring(1))
       hitPoints = 2
-    } else if (lastHit.startsWith('T')) {
-      targetNum = parseInt(lastHit.substring(1))
+    } else if (hitStr.startsWith('T')) {
+      targetNum = parseInt(hitStr.substring(1))
       hitPoints = 3
     } else {
-      targetNum = parseInt(lastHit)
+      targetNum = parseInt(hitStr)
       hitPoints = 1
     }
 
     // Undo the hit count and points
     if (targetNum !== null) {
       const newPlayerNumberHits = { ...playerNumberHits }
-      newPlayerNumberHits[currentPlayer.id] = { ...newPlayerNumberHits[currentPlayer.id] }
-      const oldHits = newPlayerNumberHits[currentPlayer.id][targetNum] || 0
-      newPlayerNumberHits[currentPlayer.id][targetNum] = Math.max(0, oldHits - hitPoints)
+      newPlayerNumberHits[playerId] = { ...newPlayerNumberHits[playerId] }
+      const oldHits = newPlayerNumberHits[playerId][targetNum] || 0
+      newPlayerNumberHits[playerId][targetNum] = Math.max(0, oldHits - hitPoints)
 
       // Also undo any points that were awarded
       const pointValue = targetNum === 0 ? 50 : targetNum
@@ -256,20 +287,18 @@ export function CricketPage({ players }: CricketProps) {
 
       if (wasOpen) {
         const newPlayerNumberPoints = { ...playerNumberPoints }
-        newPlayerNumberPoints[currentPlayer.id] = { ...newPlayerNumberPoints[currentPlayer.id] }
-        newPlayerNumberPoints[currentPlayer.id][targetNum] = Math.max(0, (newPlayerNumberPoints[currentPlayer.id][targetNum] || 0) - pointsToRemove)
+        newPlayerNumberPoints[playerId] = { ...newPlayerNumberPoints[playerId] }
+        newPlayerNumberPoints[playerId][targetNum] = Math.max(0, (newPlayerNumberPoints[playerId][targetNum] || 0) - pointsToRemove)
         setPlayerNumberPoints(newPlayerNumberPoints)
 
         setPlayerScores({
           ...playerScores,
-          [currentPlayer.id]: Math.max(0, (playerScores[currentPlayer.id] || 0) - pointsToRemove),
+          [playerId]: Math.max(0, (playerScores[playerId] || 0) - pointsToRemove),
         })
       }
 
       setPlayerNumberHits(newPlayerNumberHits)
     }
-
-    setCurrentHits(currentHits.slice(0, -1))
   }
 
   function toggleModifier(modifier: 'double' | 'treble') {
@@ -389,6 +418,32 @@ export function CricketPage({ players }: CricketProps) {
       onToggleModifier={toggleModifier}
       selectedModifier={selectedModifier}
       renderPlayerCard={renderPlayerCard}
+      customHeader={
+        <div style={{ marginTop: '12px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          {CRICKET_NUMBERS.map((num) => {
+            const isClosed = isNumberClosed(num)
+            const bgColor = isClosed ? '#ffcccc' : '#fff'
+            const borderColor = isClosed ? '#ff6666' : '#ccc'
+            return (
+              <div
+                key={num}
+                style={{
+                  padding: '4px 8px',
+                  backgroundColor: bgColor,
+                  border: `2px solid ${borderColor}`,
+                  borderRadius: '4px',
+                  fontWeight: '600',
+                  fontSize: '12px',
+                  minWidth: '30px',
+                  textAlign: 'center',
+                }}
+              >
+                {num === 0 ? 'B' : num}
+              </div>
+            )
+          })}
+        </div>
+      }
     />
   )
 }

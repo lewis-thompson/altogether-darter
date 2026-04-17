@@ -62,6 +62,21 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
   const location = useLocation()
   const navigate = useNavigate()
   const state = propState || (location.state as GameState | null)
+
+  // These checks MUST happen before any hooks
+  if (!user) {
+    return <PageLayout title="Killer"><p>Loading...</p></PageLayout>
+  }
+
+  if (!state?.players) {
+    return (
+      <PageLayout title="Killer">
+        <p className="empty-state">No game data was passed. Return to Create Game to begin.</p>
+      </PageLayout>
+    )
+  }
+
+  // Now declare all hooks after validation
   const playerListRef = useRef<HTMLDivElement | null>(null)
   const playerCardRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
@@ -70,19 +85,19 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
   const [currentHits, setCurrentHits] = useState<string[]>([])
   const [scoreComponentCollapsed, setScoreComponentCollapsed] = useState(false)
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
-    state?.players?.reduce(
+    state.players?.reduce(
       (acc, player) => ({ ...acc, [player.id]: [] }),
       {} as Record<number, string[]>,
     ) ?? {},
   )
   const [playerPoints, setPlayerPoints] = useState<Record<number, number>>(() =>
-    state?.players?.reduce(
+    state.players?.reduce(
       (acc, player) => ({ ...acc, [player.id]: 0 }),
       {} as Record<number, number>,
     ) ?? {},
   )
   const [playerStatus, setPlayerStatus] = useState<Record<number, PlayerStatus>>(() =>
-    state?.players?.reduce(
+    state.players?.reduce(
       (acc, player) => ({ ...acc, [player.id]: 'alive' as PlayerStatus }),
       {} as Record<number, PlayerStatus>,
     ) ?? {},
@@ -102,22 +117,10 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
       }>
     }[]
   >([])
-  const [buybackActive, setBuybackActive] = useState(state?.bullseyeBuyback ?? false)
+  const [buybackActive, setBuybackActive] = useState(state.bullseyeBuyback ?? false)
   const [totalHits, setTotalHits] = useState(0)
   const [totalMisses, setTotalMisses] = useState(0)
   const navGuard = useRef(false)
-
-  if (!user) {
-    return <PageLayout title="Killer"><p>Loading...</p></PageLayout>
-  }
-
-  if (!state?.players) {
-    return (
-      <PageLayout title="Killer">
-        <p className="empty-state">No game data was passed. Return to Create Game to begin.</p>
-      </PageLayout>
-    )
-  }
 
   const players = state.players
   const threshold = state.killerThreshold
@@ -439,9 +442,21 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
       ...current,
       [lastAction.playerId]: previousHits,
     }))
+    
+    // Restore to the player who made the last hit and their previous state
     setCurrentPlayerIndex(lastAction.playerIndex)
     setCurrentRound(lastAction.round)
-    setCurrentHits(previousHits)
+    
+    // Set current hits based on whether this was the last hit of their visit
+    const allPlayerHits = playerHits[lastAction.playerId] ?? []
+    if (allPlayerHits.length > previousHits.length) {
+      // This player still has hits in their current visit, show them
+      setCurrentHits(previousHits)
+    } else {
+      // This player is done with this visit, clear the hits
+      setCurrentHits(previousHits)
+    }
+    
     setSelectedModifier(null)
 
     if (lastAction.hit === 'M') {

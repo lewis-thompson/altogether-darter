@@ -134,7 +134,40 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
   }
 
   function removeLastHit() {
-    if (currentHits.length === 0) return
+    if (currentHits.length === 0) {
+      // If no hits in current visit, go back to previous player's last hit
+      const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+      const prevPlayer = players[prevPlayerIndex]
+      const prevPlayerHits = playerHits[prevPlayer.id] || []
+      
+      if (prevPlayerHits.length > 0) {
+        // Go back to previous player
+        setCurrentPlayerIndex(prevPlayerIndex)
+        if (prevPlayerIndex > currentPlayerIndex) {
+          setCurrentRound((r) => Math.max(1, r - 1))
+        }
+        
+        // Set up the last visit minus one hit
+        const newHits = prevPlayerHits.slice(0, -1)
+        setCurrentHits(newHits)
+        
+        // For simplicity, just reduce the score back one segment
+        // In a full implementation, you'd track score history per player
+        const currentScore = playerScores[prevPlayer.id] || 1
+        const previousScore = currentScore === 1 ? 1 : currentScore - 1
+        
+        setPlayerScores({
+          ...playerScores,
+          [prevPlayer.id]: previousScore,
+        })
+        
+        // Remove from player hits
+        const updatedHits = { ...playerHits }
+        updatedHits[prevPlayer.id] = newHits
+        setPlayerHits(updatedHits)
+      }
+      return
+    }
 
     const newHits = currentHits.slice(0, -1)
     const newHistory = visitScoreHistory.slice(0, -1)
