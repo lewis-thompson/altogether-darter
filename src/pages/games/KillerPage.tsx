@@ -63,20 +63,7 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
   const navigate = useNavigate()
   const state = propState || (location.state as GameState | null)
 
-  // These checks MUST happen before any hooks
-  if (!user) {
-    return <PageLayout title="Killer"><p>Loading...</p></PageLayout>
-  }
-
-  if (!state?.players) {
-    return (
-      <PageLayout title="Killer">
-        <p className="empty-state">No game data was passed. Return to Create Game to begin.</p>
-      </PageLayout>
-    )
-  }
-
-  // Now declare all hooks after validation
+  // Declare ALL hooks first, BEFORE any conditional returns
   const playerListRef = useRef<HTMLDivElement | null>(null)
   const playerCardRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
@@ -84,24 +71,9 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
   const [selectedModifier, setSelectedModifier] = useState<'double' | 'treble' | null>(null)
   const [currentHits, setCurrentHits] = useState<string[]>([])
   const [scoreComponentCollapsed, setScoreComponentCollapsed] = useState(false)
-  const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
-    state.players?.reduce(
-      (acc, player) => ({ ...acc, [player.id]: [] }),
-      {} as Record<number, string[]>,
-    ) ?? {},
-  )
-  const [playerPoints, setPlayerPoints] = useState<Record<number, number>>(() =>
-    state.players?.reduce(
-      (acc, player) => ({ ...acc, [player.id]: 0 }),
-      {} as Record<number, number>,
-    ) ?? {},
-  )
-  const [playerStatus, setPlayerStatus] = useState<Record<number, PlayerStatus>>(() =>
-    state.players?.reduce(
-      (acc, player) => ({ ...acc, [player.id]: 'alive' as PlayerStatus }),
-      {} as Record<number, PlayerStatus>,
-    ) ?? {},
-  )
+  const [playerHits, setPlayerHits] = useState<Record<number, string[]>>({})
+  const [playerPoints, setPlayerPoints] = useState<Record<number, number>>({})
+  const [playerStatus, setPlayerStatus] = useState<Record<number, PlayerStatus>>({})
   const [hitStack, setHitStack] = useState<
     {
       playerId: number
@@ -117,10 +89,49 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
       }>
     }[]
   >([])
-  const [buybackActive, setBuybackActive] = useState(state.bullseyeBuyback ?? false)
+  const [buybackActive, setBuybackActive] = useState(state?.bullseyeBuyback ?? false)
   const [totalHits, setTotalHits] = useState(0)
   const [totalMisses, setTotalMisses] = useState(0)
   const navGuard = useRef(false)
+
+  // Now validate state and user after all hooks are declared
+  if (!user) {
+    return <PageLayout title="Killer"><p>Loading...</p></PageLayout>
+  }
+
+  if (!state?.players) {
+    return (
+      <PageLayout title="Killer">
+        <p className="empty-state">No game data was passed. Return to Create Game to begin.</p>
+      </PageLayout>
+    )
+  }
+
+  // Initialize state data from players on first render
+  if (Object.keys(playerHits).length === 0) {
+    setPlayerHits(
+      state.players.reduce(
+        (acc, player) => ({ ...acc, [player.id]: [] }),
+        {} as Record<number, string[]>,
+      )
+    )
+  }
+  if (Object.keys(playerPoints).length === 0) {
+    setPlayerPoints(
+      state.players.reduce(
+        (acc, player) => ({ ...acc, [player.id]: 0 }),
+        {} as Record<number, number>,
+      )
+    )
+  }
+  if (Object.keys(playerStatus).length === 0) {
+    setPlayerStatus(
+      state.players.reduce(
+        (acc, player) => ({ ...acc, [player.id]: 'alive' as PlayerStatus }),
+        {} as Record<number, PlayerStatus>,
+      )
+    )
+  }
 
   const players = state.players
   const threshold = state.killerThreshold
@@ -516,6 +527,15 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
             <div className="header-title">{currentRound}</div>
           </div>
         </div>
+        {/* Display current hits */}
+        {currentHits.length > 0 && (
+          <div className="header-row" style={{ paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+            <div className="header-info">
+              <div className="header-label">Current Hits</div>
+              <div className="header-title">{currentHits.join(' | ')}</div>
+            </div>
+          </div>
+        )}
         {state.bullseyeBuyback && (
           <div className="header-row">
             <div className="header-info">

@@ -111,6 +111,14 @@ export function GameTemplate({
               <span className="template-stat-value">{headerConfig.round}</span>
             </div>
           </div>
+          {currentHits.length > 0 && (
+            <div className="template-header-stats" style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+              <div className="template-header-stat">
+                <span className="template-stat-label">Current Hits:</span>
+                <span className="template-stat-value">{currentHits.join(' | ')}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       {customHeader && <div className="template-header-custom">{customHeader}</div>}
