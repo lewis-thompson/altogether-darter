@@ -265,6 +265,9 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
     },
   }))
 
+  // Shanghai score buttons: target number + bull + miss
+  const shanghaiScoreButtons = [targetNumber, 'bull' as const, 'miss' as const]
+
   return (
     <GameTemplate
       headerConfig={{
@@ -286,6 +289,7 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
       onRemoveLastHit={removeLastHit}
       onToggleModifier={toggleModifier}
       selectedModifier={selectedModifier}
+      customScoreButtons={shanghaiScoreButtons}
     />
   )
 }

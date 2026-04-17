@@ -32,6 +32,7 @@ interface GameTemplateProps {
   homeLink?: string
   renderPlayerCard?: (player: PlayerData, isActive: boolean) => React.ReactNode
   customHeader?: React.ReactNode
+  customScoreButtons?: (string | number)[]
 }
 
 export function GameTemplate({
@@ -47,6 +48,7 @@ export function GameTemplate({
   homeLink = '/',
   renderPlayerCard,
   customHeader,
+  customScoreButtons,
 }: GameTemplateProps) {
   const [isModifierActive, setIsModifierActive] = useState<'double' | 'treble' | null>(selectedModifier)
   const playerCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -70,7 +72,7 @@ export function GameTemplate({
     onAddScore(value)
   }
 
-  const scoreButtons = [
+  const scoreButtons = customScoreButtons || [
     ...Array.from({ length: 20 }, (_, i) => i + 1),
     'bull' as const,
     'miss' as const,
@@ -200,7 +202,10 @@ export function GameTemplate({
                 className={`template-score-button${
                   isModifierActive && typeof value === 'number' ? ' modifier-active' : ''
                 }`}
-                onClick={() => handleScoreClick(value)}
+                onClick={() => {
+                  const scoreValue = typeof value === 'number' ? value : value as 'miss' | 'bull'
+                  handleScoreClick(scoreValue)
+                }}
                 disabled={currentHits.length >= 3 || (isModifierActive === 'treble' && (isBull || isMiss))}
               >
                 {displayValue}

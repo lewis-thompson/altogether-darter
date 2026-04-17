@@ -51,8 +51,6 @@ function PageLayout({
   )
 }
 
-const numbers = Array.from({ length: 20 }, (_, index) => index + 1)
-
 interface KillerPageProps {
   state?: GameState | null
 }
@@ -504,7 +502,12 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
     })
   }
 
-  const scoreButtons = [...numbers, 'bull' as const, 'miss' as const]
+  // Only show active player numbers (numbers assigned to players in game)
+  const activeNumbers = players
+    .map(p => p.selectedNumber)
+    .filter((n): n is number => n !== null)
+    .sort((a, b) => a - b)
+  const scoreButtons = [...activeNumbers, 'bull' as const, 'miss' as const]
   const isKiller = (playerId: number) => playerPoints[playerId] === threshold && playerStatus[playerId] === 'alive'
 
   return (

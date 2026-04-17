@@ -309,6 +309,9 @@ export function CricketPage({ players }: CricketProps) {
     return <div>Loading...</div>
   }
 
+  // Cricket score buttons: cricket numbers + Miss
+  const cricketScoreButtons = [15, 16, 17, 18, 19, 20, 'bull' as const, 'miss' as const]
+
   const playerDataForTemplate = players.map((player) => ({
     id: String(player.id),
     name: player.name,
@@ -418,6 +421,7 @@ export function CricketPage({ players }: CricketProps) {
       onToggleModifier={toggleModifier}
       selectedModifier={selectedModifier}
       renderPlayerCard={renderPlayerCard}
+      customScoreButtons={cricketScoreButtons}
       customHeader={
         <div style={{ marginTop: '12px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
           {CRICKET_NUMBERS.map((num) => {

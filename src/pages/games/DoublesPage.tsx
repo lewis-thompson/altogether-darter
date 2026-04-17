@@ -198,6 +198,11 @@ export function DoublesPage({ players }: DoublesProps) {
     },
   }))
 
+  // Doubles score buttons: only the target number + miss (bull for round 21)
+  const doublesScoreButtons = currentRound <= 20 
+    ? [currentRound, 'miss' as const]
+    : ['bull' as const, 'miss' as const]
+
   return (
     <GameTemplate
       headerConfig={{
@@ -219,6 +224,7 @@ export function DoublesPage({ players }: DoublesProps) {
       onRemoveLastHit={removeLastHit}
       onToggleModifier={toggleModifier}
       selectedModifier={selectedModifier}
+      customScoreButtons={doublesScoreButtons}
     />
   )
 }

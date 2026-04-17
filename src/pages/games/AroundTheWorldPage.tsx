@@ -202,6 +202,12 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
     },
   }))
 
+  // AroundTheWorld score buttons: just the target number + bull + miss
+  const targetSegment = getCurrentSegment(playerScores[currentPlayer.id] || 1)
+  const aroundTheWorldScoreButtons = typeof targetSegment === 'number' 
+    ? [targetSegment, 'bull' as const, 'miss' as const]
+    : ['bull' as const, 'miss' as const]
+
   return (
     <GameTemplate
       headerConfig={{
@@ -217,6 +223,7 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
       onRemoveLastHit={removeLastHit}
       onToggleModifier={toggleModifier}
       selectedModifier={selectedModifier}
+      customScoreButtons={aroundTheWorldScoreButtons}
     />
   )
 }
