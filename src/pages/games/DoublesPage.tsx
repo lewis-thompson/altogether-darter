@@ -57,26 +57,28 @@ export function DoublesPage({ players }: DoublesProps) {
     if (currentHits.length >= 3) return
     if (currentRound > 21) return // Game over
 
+    let hitStr = ''
     let isOnTarget = false
     let hitValue = 0
 
     if (target === 'miss') {
+      hitStr = 'M'
       isOnTarget = false
       hitValue = 0
     } else if (target === 'bull') {
-      // Bull is only a target on round 21
+      hitStr = currentRound === 21 ? 'DB' : 'SB'
       isOnTarget = currentRound === 21
-      if (isOnTarget) hitValue = 1 // 1 point for bullseye
+      hitValue = isOnTarget ? 1 : 0
     } else if (currentRound <= 20 && target === targetNumber && selectedModifier === 'double') {
-      // Hit the target double - 1 point
+      hitStr = `D${target}`
       isOnTarget = true
       hitValue = 1
+    } else {
+      hitStr = formatHit(target, selectedModifier)
     }
 
-    const hitStr = formatHit(target, selectedModifier)
     const newHits = [...currentHits, hitStr]
     setCurrentHits(newHits)
-    setSelectedModifier(null)
 
     // Add score if on target
     if (isOnTarget) {
@@ -198,10 +200,10 @@ export function DoublesPage({ players }: DoublesProps) {
     },
   }))
 
-  // Doubles score buttons: only the target number + miss (bull for round 21)
+  // Doubles score buttons: target number variations + bull + miss (no modifier buttons needed)
   const doublesScoreButtons = currentRound <= 20 
-    ? [currentRound, 'miss' as const]
-    : ['bull' as const, 'miss' as const]
+    ? [currentRound, `D${currentRound}`, 'miss' as const]
+    : ['bull' as const, 'DB', 'miss' as const]
 
   return (
     <GameTemplate
@@ -225,6 +227,7 @@ export function DoublesPage({ players }: DoublesProps) {
       onToggleModifier={toggleModifier}
       selectedModifier={selectedModifier}
       customScoreButtons={doublesScoreButtons}
+      hideModifierButtons={true}
     />
   )
 }

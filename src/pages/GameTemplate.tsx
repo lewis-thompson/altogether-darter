@@ -33,6 +33,7 @@ interface GameTemplateProps {
   renderPlayerCard?: (player: PlayerData, isActive: boolean) => React.ReactNode
   customHeader?: React.ReactNode
   customScoreButtons?: (string | number)[]
+  hideModifierButtons?: boolean
 }
 
 export function GameTemplate({
@@ -49,6 +50,7 @@ export function GameTemplate({
   renderPlayerCard,
   customHeader,
   customScoreButtons,
+  hideModifierButtons = false,
 }: GameTemplateProps) {
   const [isModifierActive, setIsModifierActive] = useState<'double' | 'treble' | null>(selectedModifier)
   const playerCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -65,6 +67,34 @@ export function GameTemplate({
   const handleToggleModifier = (modifier: 'double' | 'treble') => {
     setIsModifierActive(isModifierActive === modifier ? null : modifier)
     onToggleModifier?.(modifier)
+  }
+
+  function getButtonLabel(value: number | string): string {
+    if (typeof value === 'number') return String(value)
+    if (value === 'bull') return 'Bull'
+    if (value === 'miss') return 'Miss'
+    if (typeof value === 'string') {
+      // Handle dart notation like 'D1', 'T1', 'S1'
+      if (value.startsWith('D')) return `D${value.slice(1)}`
+      if (value.startsWith('T')) return `T${value.slice(1)}`
+      if (value.startsWith('S')) return value.slice(1)
+      return value
+    }
+    return String(value)
+  }
+
+  function getButtonValue(value: number | string): 'miss' | 'bull' | number {
+    if (typeof value === 'number') return value
+    if (value === 'bull' || value === 'miss') return value
+    if (typeof value === 'string') {
+      // For dart notation, extract the number
+      if (value.startsWith('D') || value.startsWith('T') || value.startsWith('S')) {
+        const num = parseInt(value.slice(1), 10)
+        return num
+      }
+      return value as 'miss' | 'bull'
+    }
+    return value
   }
 
   const handleScoreClick = (value: 'miss' | 'bull' | number) => {
@@ -171,20 +201,24 @@ export function GameTemplate({
       {/* Score Component - Inline */}
       <div className="template-score-section">
         <div className="template-modifier-row">
-          <button
-            className={`template-modifier-button${isModifierActive === 'double' ? ' selected' : ''}`}
-            onClick={() => handleToggleModifier('double')}
-            disabled={currentHits.length >= 3}
-          >
-            Double
-          </button>
-          <button
-            className={`template-modifier-button${isModifierActive === 'treble' ? ' selected' : ''}`}
-            onClick={() => handleToggleModifier('treble')}
-            disabled={currentHits.length >= 3}
-          >
-            Treble
-          </button>
+          {!hideModifierButtons && (
+            <>
+              <button
+                className={`template-modifier-button${isModifierActive === 'double' ? ' selected' : ''}`}
+                onClick={() => handleToggleModifier('double')}
+                disabled={currentHits.length >= 3}
+              >
+                Double
+              </button>
+              <button
+                className={`template-modifier-button${isModifierActive === 'treble' ? ' selected' : ''}`}
+                onClick={() => handleToggleModifier('treble')}
+                disabled={currentHits.length >= 3}
+              >
+                Treble
+              </button>
+            </>
+          )}
           <button className="template-modifier-button" onClick={onRemoveLastHit}>
             Back
           </button>
@@ -194,17 +228,17 @@ export function GameTemplate({
           {scoreButtons.map((value) => {
             const isBull = value === 'bull'
             const isMiss = value === 'miss'
-            const displayValue = typeof value === 'number' ? value : isBull ? 'Bull' : 'Miss'
+            const buttonValue = getButtonValue(value)
+            const displayValue = getButtonLabel(value)
 
             return (
               <button
                 key={String(value)}
                 className={`template-score-button${
-                  isModifierActive && typeof value === 'number' ? ' modifier-active' : ''
+                  isModifierActive && typeof buttonValue === 'number' ? ' modifier-active' : ''
                 }`}
                 onClick={() => {
-                  const scoreValue = typeof value === 'number' ? value : value as 'miss' | 'bull'
-                  handleScoreClick(scoreValue)
+                  handleScoreClick(buttonValue)
                 }}
                 disabled={currentHits.length >= 3 || (isModifierActive === 'treble' && (isBull || isMiss))}
               >

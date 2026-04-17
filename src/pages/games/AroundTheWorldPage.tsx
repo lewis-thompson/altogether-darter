@@ -41,25 +41,31 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
     // Check if hit matches current target
     const targetSegment = getCurrentSegment(currentScore)
     let hitMatches = false
+    let segmentsAdvanced = 0
+    let displayHit = ''
 
-    if (target === 'bull') {
+    if (target === 'miss') {
+      hitMatches = false
+      displayHit = 'M'
+      segmentsAdvanced = 0
+    } else if (target === 'bull') {
       hitMatches = targetSegment === 'OB' || targetSegment === 'B'
+      displayHit = 'SB'
+      segmentsAdvanced = 1
     } else if (typeof targetSegment === 'number' && target === targetSegment) {
       hitMatches = true
+      segmentsAdvanced = selectedModifier === 'double' ? 2 : selectedModifier === 'treble' ? 3 : 1
+      displayHit = `${selectedModifier === 'double' ? 'D' : selectedModifier === 'treble' ? 'T' : 'S'}${target}`
+    } else {
+      displayHit = String(target)
     }
 
     if (hitMatches) {
-      // Determine how many segments to advance based on dart type
-      let segmentsAdvanced = 1 // Single hit advances 1
-      if (selectedModifier === 'double') segmentsAdvanced = 2
-      if (selectedModifier === 'treble') segmentsAdvanced = 3
-
       const newScore = currentScore + segmentsAdvanced
-      const newHits = [...currentHits, String(target)]
+      const newHits = [...currentHits, displayHit]
       const newHistory = [...visitScoreHistory, newScore]
       setCurrentHits(newHits)
       setVisitScoreHistory(newHistory)
-      setSelectedModifier(null)
 
       if (darts === 2) {
         // End of visit
@@ -202,10 +208,10 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
     },
   }))
 
-  // AroundTheWorld score buttons: just the target number + bull + miss
+  // AroundTheWorld score buttons: target segment variations + miss (no modifier buttons needed)
   const targetSegment = getCurrentSegment(playerScores[currentPlayer.id] || 1)
   const aroundTheWorldScoreButtons = typeof targetSegment === 'number' 
-    ? [targetSegment, 'bull' as const, 'miss' as const]
+    ? [targetSegment, `D${targetSegment}`, `T${targetSegment}`, 'miss' as const]
     : ['bull' as const, 'miss' as const]
 
   return (
@@ -224,6 +230,7 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
       onToggleModifier={toggleModifier}
       selectedModifier={selectedModifier}
       customScoreButtons={aroundTheWorldScoreButtons}
+      hideModifierButtons={true}
     />
   )
 }

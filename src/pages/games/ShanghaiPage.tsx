@@ -45,29 +45,31 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
     if (currentHits.length >= 3) return
     if (targetNumber < 1) return // Game over
 
-    // Check if hit is on target
+    let hitStr = ''
     let isOnTarget = false
     let hitValue = 0
 
     if (target === 'miss') {
+      hitStr = 'M'
       isOnTarget = false
       hitValue = 0
     } else if (target === 'bull') {
-      // Bull is never the target in Shanghai (targets are 1-20)
+      hitStr = 'SB'
       isOnTarget = false
       hitValue = 0
     } else if (target === targetNumber) {
-      // Hit the target number
-      isOnTarget = true
       if (selectedModifier === 'double') hitValue = target * 2
       else if (selectedModifier === 'treble') hitValue = target * 3
       else hitValue = target
+      
+      isOnTarget = true
+      hitStr = formatHit(target, selectedModifier)
+    } else {
+      hitStr = formatHit(target, selectedModifier)
     }
 
-    const hitStr = formatHit(target, selectedModifier)
     const newHits = [...currentHits, hitStr]
     setCurrentHits(newHits)
-    setSelectedModifier(null)
 
     // If on target, add to score
     if (isOnTarget) {
@@ -265,8 +267,10 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
     },
   }))
 
-  // Shanghai score buttons: target number + bull + miss
-  const shanghaiScoreButtons = [targetNumber, 'bull' as const, 'miss' as const]
+  // Shanghai score buttons: target number variations + miss (no modifier buttons needed)
+  const shanghaiScoreButtons = targetNumber > 0 
+    ? [targetNumber, `D${targetNumber}`, `T${targetNumber}`, 'miss' as const]
+    : ['miss' as const]
 
   return (
     <GameTemplate
@@ -290,6 +294,7 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
       onToggleModifier={toggleModifier}
       selectedModifier={selectedModifier}
       customScoreButtons={shanghaiScoreButtons}
+      hideModifierButtons={true}
     />
   )
 }
