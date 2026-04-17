@@ -66,6 +66,7 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
   // Declare ALL hooks first, BEFORE any conditional returns
   const playerListRef = useRef<HTMLDivElement | null>(null)
   const playerCardRefs = useRef<Record<number, HTMLDivElement | null>>({})
+  const [initialized, setInitialized] = useState(false)
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
   const [currentRound, setCurrentRound] = useState(1)
   const [selectedModifier, setSelectedModifier] = useState<'double' | 'treble' | null>(null)
@@ -107,30 +108,34 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
     )
   }
 
-  // Initialize state data from players on first render
-  if (Object.keys(playerHits).length === 0) {
-    setPlayerHits(
-      state.players.reduce(
-        (acc, player) => ({ ...acc, [player.id]: [] }),
-        {} as Record<number, string[]>,
+  // Initialize game state on first load
+  useEffect(() => {
+    if (state?.players && !initialized) {
+      setPlayerHits(
+        state.players.reduce(
+          (acc, player) => ({ ...acc, [player.id]: [] }),
+          {} as Record<number, string[]>,
+        )
       )
-    )
-  }
-  if (Object.keys(playerPoints).length === 0) {
-    setPlayerPoints(
-      state.players.reduce(
-        (acc, player) => ({ ...acc, [player.id]: 0 }),
-        {} as Record<number, number>,
+      setPlayerPoints(
+        state.players.reduce(
+          (acc, player) => ({ ...acc, [player.id]: 0 }),
+          {} as Record<number, number>,
+        )
       )
-    )
-  }
-  if (Object.keys(playerStatus).length === 0) {
-    setPlayerStatus(
-      state.players.reduce(
-        (acc, player) => ({ ...acc, [player.id]: 'alive' as PlayerStatus }),
-        {} as Record<number, PlayerStatus>,
+      setPlayerStatus(
+        state.players.reduce(
+          (acc, player) => ({ ...acc, [player.id]: 'alive' as PlayerStatus }),
+          {} as Record<number, PlayerStatus>,
+        )
       )
-    )
+      setInitialized(true)
+    }
+  }, [state?.players?.length])
+
+  // Don't render game until initialized
+  if (!initialized) {
+    return <PageLayout title="Killer"><p>Setting up game...</p></PageLayout>
   }
 
   const players = state.players
