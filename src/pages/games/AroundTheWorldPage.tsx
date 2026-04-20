@@ -79,6 +79,7 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
         })
         setCurrentHits([])
         setVisitScoreHistory([])
+        setSelectedModifier(null)
 
         // Check if won
         if (newScore >= 22) {
@@ -128,6 +129,7 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
         })
         setCurrentHits([])
         setVisitScoreHistory([])
+        setSelectedModifier(null)
 
         // Move to next player
         const nextPlayerIndex = (currentPlayerIndex + 1) % players.length

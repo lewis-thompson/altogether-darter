@@ -97,9 +97,32 @@ export function GameTemplate({
     return value
   }
 
-  const handleScoreClick = (value: 'miss' | 'bull' | number) => {
-    setIsModifierActive(null)
-    onAddScore(value)
+  const handleScoreClick = (rawValue: string | number) => {
+    // Handle custom button formats like "D20", "T20", "S20"
+    if (typeof rawValue === 'string' && (rawValue.startsWith('D') || rawValue.startsWith('T') || rawValue.startsWith('S'))) {
+      const prefix = rawValue[0]
+      const numberStr = rawValue.slice(1)
+      const num = parseInt(numberStr, 10)
+      
+      // Set the appropriate modifier
+      if (prefix === 'D') {
+        setIsModifierActive('double')
+        onToggleModifier?.('double')
+      } else if (prefix === 'T') {
+        setIsModifierActive('treble')
+        onToggleModifier?.('treble')
+      } else if (prefix === 'S') {
+        setIsModifierActive(null)
+      }
+      
+      // Call onAddScore with the number
+      onAddScore(num)
+    } else {
+      // Regular button (number, 'bull', or 'miss')
+      setIsModifierActive(null)
+      const buttonValue = getButtonValue(rawValue)
+      onAddScore(buttonValue)
+    }
   }
 
   const scoreButtons = customScoreButtons || [
@@ -238,7 +261,7 @@ export function GameTemplate({
                   isModifierActive && typeof buttonValue === 'number' ? ' modifier-active' : ''
                 }`}
                 onClick={() => {
-                  handleScoreClick(buttonValue)
+                  handleScoreClick(value)
                 }}
                 disabled={currentHits.length >= 3 || (isModifierActive === 'treble' && (isBull || isMiss))}
               >

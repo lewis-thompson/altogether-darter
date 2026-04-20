@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks'
 import { GameTemplate } from '../GameTemplate'
@@ -41,6 +41,12 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
 
   const currentPlayer = players[currentPlayerIndex]
   const currentScore = playerScores[currentPlayer.id] ?? startingScore
+
+  // Update visitStartScore whenever we switch to a new player
+  useEffect(() => {
+    const playerScore = playerScores[currentPlayer.id] ?? startingScore
+    setVisitStartScore(playerScore)
+  }, [currentPlayerIndex, currentPlayer, playerScores])
 
   function getHitValue(target: 'miss' | 'bull' | number, modifier: 'double' | 'treble' | null): number {
     if (target === 'miss') return 0

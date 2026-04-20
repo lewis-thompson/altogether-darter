@@ -94,6 +94,18 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
     return target
   }
 
+  function findNextEligiblePlayer(startIndex: number, currentLives: Record<number, number>): number {
+    // Find the next player with lives > 0
+    let nextIndex = (startIndex + 1) % players.length
+    let attempts = 0
+    while (attempts < players.length && currentLives[players[nextIndex].id] <= 0) {
+      nextIndex = (nextIndex + 1) % players.length
+      attempts++
+    }
+    // If all players are out, just return the next index anyway (game should end)
+    return nextIndex
+  }
+
   function addHit(target: 'miss' | 'bull' | number) {
     if (currentHits.length >= 3 || playerLives[currentPlayer.id] <= 0) return
 
@@ -143,8 +155,8 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
         setVisitScore(0)
         setLastVisitScore(visitScore)
 
-        // Move to next player
-        const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
+        // Move to next eligible player (skip those with 0 lives)
+        const nextPlayerIndex = findNextEligiblePlayer(currentPlayerIndex, newLives)
         if (nextPlayerIndex === 0) {
           setCurrentRound((r) => r + 1)
         }
@@ -200,7 +212,7 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
         setVisitScore(0)
         setLastVisitScore(totalScore)
 
-        const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
+        const nextPlayerIndex = findNextEligiblePlayer(currentPlayerIndex, newLives)
         if (nextPlayerIndex === 0) {
           setCurrentRound((r) => r + 1)
         }
@@ -261,7 +273,7 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
       setVisitScore(0)
       setLastVisitScore(totalVisitScore)
 
-      const nextPlayerIndex = (currentPlayerIndex + 1) % players.length
+      const nextPlayerIndex = findNextEligiblePlayer(currentPlayerIndex, newLives)
       if (nextPlayerIndex === 0) {
         setCurrentRound((r) => r + 1)
       }
@@ -424,6 +436,7 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
     additionalData: {
       Lives: (playerLives[player.id] || 0).toString(),
       Kills: (playerKills[player.id] || 0).toString(),
+      Status: (playerLives[player.id] || 0) > 0 ? 'In' : 'Out',
     },
   }))
 
