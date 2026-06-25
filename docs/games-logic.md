@@ -87,6 +87,11 @@ Splitscore:
 
 
 Cricket:
+- the player has to any of the given numbers
+- once they hit a number the required number of times then they have opened that number
+- every hit after that the player gains points (the numerical value) until the number is closed
+- the number is closed when every player has opened that number
+- the game ends when a player has opened every number and has the most points
 
 
 

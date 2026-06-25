@@ -21,6 +21,8 @@ Killer:
 
 
 Every Number:
+- (header) what round it is
+- (header) how many hits needed per number
 - every number with how many hits the player has for each
 
 
