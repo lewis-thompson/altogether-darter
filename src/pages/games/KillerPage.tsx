@@ -93,22 +93,24 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
   const [totalMisses, setTotalMisses] = useState(0)
   const navGuard = useRef(false)
 
-  // Now validate state and user after all hooks are declared
-  if (!user) {
-    return <PageLayout title="Killer"><p>Loading...</p></PageLayout>
-  }
-
-  if (!state?.players) {
-    return (
-      <PageLayout title="Killer">
-        <p className="empty-state">No game data was passed. Return to Create Game to begin.</p>
-      </PageLayout>
-    )
-  }
+  const players = state?.players ?? []
+  const threshold = state?.killerThreshold ?? 5
+  const player = players[currentPlayerIndex]
+  const currentPlayerStatus = player ? playerStatus[player.id] : 'alive'
+  const buybackUsable =
+    buybackActive &&
+    state?.bullseyeRounds !== null &&
+    state?.bullseyeRounds !== undefined &&
+    currentRound <= state.bullseyeRounds
+  const alivePlayers = players.filter((item) => playerStatus[item.id] === 'alive')
 
   // Initialize game state on first load
   useEffect(() => {
-    if (state?.players && !initialized) {
+    if (!state?.players || initialized) {
+      return
+    }
+
+    if (state.players.length > 0) {
       setPlayerHits(
         state.players.reduce(
           (acc, player) => ({ ...acc, [player.id]: [] }),
@@ -129,27 +131,23 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
       )
       setInitialized(true)
     }
-  }, [state?.players?.length])
-
-  // Don't render game until initialized
-  if (!initialized) {
-    return <PageLayout title="Killer"><p>Setting up game...</p></PageLayout>
-  }
-
-  const players = state.players
-  const threshold = state.killerThreshold
-  const player = players[currentPlayerIndex]
-  const currentPlayerStatus = playerStatus[player.id]
-  const buybackUsable = buybackActive && state.bullseyeRounds !== null && currentRound <= state.bullseyeRounds
-  const alivePlayers = players.filter((item) => playerStatus[item.id] === 'alive')
+  }, [state?.players, initialized])
 
   useEffect(() => {
+    if (!initialized || !player) {
+      return
+    }
+
     const currentPlayer = players[currentPlayerIndex]
     const card = currentPlayer && playerCardRefs.current[currentPlayer.id]
     card?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [currentPlayerIndex, players])
+  }, [currentPlayerIndex, players, initialized, player])
 
   useEffect(() => {
+    if (!initialized || !state) {
+      return
+    }
+
     if (state.bullseyeRounds !== null && currentRound > state.bullseyeRounds && buybackActive) {
       setPlayerStatus((current) => {
         const nextStatus = { ...current }
@@ -161,9 +159,13 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
         return nextStatus
       })
     }
-  }, [currentRound, buybackActive, players, state.bullseyeRounds])
+  }, [currentRound, buybackActive, players, state, initialized])
 
   useEffect(() => {
+    if (!initialized || !state || players.length === 0) {
+      return
+    }
+
     const activePlayers = players.filter((playerItem) => {
       const status = playerStatus[playerItem.id]
       return status !== 'dead' && !(status === 'dead-buyback' && !buybackActive)
@@ -195,7 +197,7 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
         } satisfies GameCompleteState,
       })
     }
-  }, [alivePlayers.length, playerPoints, playerStatus, players, currentRound, hitStack.length, totalHits, totalMisses, navigate, state.bullseyeBuyback, state.bullseyeRounds, buybackActive])
+  }, [alivePlayers.length, playerPoints, playerStatus, players, currentRound, hitStack.length, totalHits, totalMisses, navigate, state, buybackActive, initialized])
 
   function findNextEligiblePlayerIndex(startIndex: number) {
     for (let i = 1; i <= players.length; i += 1) {
@@ -209,6 +211,10 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
   }
 
   useEffect(() => {
+    if (!initialized || !player) {
+      return
+    }
+
     const currentId = player?.id
     if (!currentId) {
       return
@@ -226,7 +232,7 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
         setCurrentHits(playerHits[players[nextIndex].id] ?? [])
       }
     }
-  }, [buybackActive, currentPlayerIndex, player, playerHits, playerStatus, players])
+  }, [buybackActive, currentPlayerIndex, player, playerHits, playerStatus, players, initialized])
 
   function formatHit(target: 'miss' | 'bull' | number) {
     if (target === 'miss') {
@@ -303,6 +309,10 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
   }
 
   function addHit(target: 'miss' | 'bull' | number) {
+    if (!player) {
+      return
+    }
+
     const hitValue = formatHit(target)
     const nextHits = [...currentHits, hitValue]
     const isBull = target === 'bull'
@@ -456,11 +466,11 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
       ...current,
       [lastAction.playerId]: previousHits,
     }))
-    
+
     // Restore to the player who made the last hit and their previous state
     setCurrentPlayerIndex(lastAction.playerIndex)
     setCurrentRound(lastAction.round)
-    
+
     // Set current hits based on whether this was the last hit of their visit
     const allPlayerHits = playerHits[lastAction.playerId] ?? []
     if (allPlayerHits.length > previousHits.length) {
@@ -470,7 +480,7 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
       // This player is done with this visit, clear the hits
       setCurrentHits(previousHits)
     }
-    
+
     setSelectedModifier(null)
 
     if (lastAction.hit === 'M') {
@@ -509,6 +519,23 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
     .sort((a, b) => a - b)
   const scoreButtons = [...activeNumbers, 'bull' as const, 'miss' as const]
   const isKiller = (playerId: number) => playerPoints[playerId] === threshold && playerStatus[playerId] === 'alive'
+
+  // UI guards after hooks are declared to preserve hook ordering.
+  if (!user) {
+    return <PageLayout title="Killer"><p>Loading...</p></PageLayout>
+  }
+
+  if (!state?.players) {
+    return (
+      <PageLayout title="Killer">
+        <p className="empty-state">No game data was passed. Return to Create Game to begin.</p>
+      </PageLayout>
+    )
+  }
+
+  if (!initialized || players.length === 0 || !player) {
+    return <PageLayout title="Killer"><p>Setting up game...</p></PageLayout>
+  }
 
   return (
     <PageLayout title="Killer">
@@ -552,9 +579,9 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
                 <span>{buybackActive ? `${state.bullseyeRounds ?? 0} rounds` : 'Off'}</span>
               </div>
             </div>
-            <button 
-              type="button" 
-              className="header-toggle-button" 
+            <button
+              type="button"
+              className="header-toggle-button"
               onClick={toggleBuybackActive}
               title={buybackActive ? 'Turn off buyback' : 'Turn on buyback'}
             >
@@ -592,10 +619,10 @@ export function KillerPage({ state: propState }: KillerPageProps = {}) {
                   {status === 'alive'
                     ? 'Alive'
                     : status === 'out-recovery'
-                    ? 'Dead — recovery turn'
-                    : status === 'dead-buyback'
-                    ? 'Dead — buyback available'
-                    : 'Dead'}
+                      ? 'Dead — recovery turn'
+                      : status === 'dead-buyback'
+                        ? 'Dead — buyback available'
+                        : 'Dead'}
                 </span>
               </div>
               {isKiller(playerItem.id) ? <div className="player-card-killer">Killer</div> : null}
