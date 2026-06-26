@@ -20,6 +20,9 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
   )
+  const [lastVisitHits, setLastVisitHits] = useState<Record<number, string[]>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
+  )
   const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
   )
@@ -61,7 +64,7 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
       if (selectedModifier === 'double') hitValue = target * 2
       else if (selectedModifier === 'treble') hitValue = target * 3
       else hitValue = target
-      
+
       isOnTarget = true
       hitStr = formatHit(target, selectedModifier)
     } else {
@@ -88,6 +91,10 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
         ...playerHits,
         [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
       })
+      setLastVisitHits((current) => ({
+        ...current,
+        [currentPlayer.id]: newHits,
+      }))
 
       navigate('/game-complete', {
         state: {
@@ -111,6 +118,10 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
         ...playerHits,
         [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
       })
+      setLastVisitHits((current) => ({
+        ...current,
+        [currentPlayer.id]: newHits,
+      }))
       setCurrentHits([])
 
       // Check if game over (all rounds complete)
@@ -152,7 +163,7 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
 
     for (const hit of hits) {
       if (hit === 'M' || hit === 'SB' || hit === 'DB') continue
-      
+
       // Extract number and modifier from hit string
       let modifier = ''
       let hitNum = 0
@@ -183,20 +194,20 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
       // If no hits in current visit, go back to previous player's last hit
       const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
       const prevPlayer = players[prevPlayerIndex]
-      const prevPlayerHits = playerHits[prevPlayer.id] || []
-      
+      const prevPlayerHits = lastVisitHits[prevPlayer.id] || []
+
       if (prevPlayerHits.length > 0) {
         // Go back to previous player
         setCurrentPlayerIndex(prevPlayerIndex)
         if (prevPlayerIndex > currentPlayerIndex) {
           setCurrentRound((r) => Math.max(1, r - 1))
         }
-        
+
         // Set up the last visit minus one hit
         const lastHitStr = prevPlayerHits[prevPlayerHits.length - 1]
         const newHits = prevPlayerHits.slice(0, -1)
         setCurrentHits(newHits)
-        
+
         // Undo the score
         if (lastHitStr !== 'M' && targetNumber > 0) {
           const hitValue = extractHitValue(lastHitStr, targetNumber)
@@ -207,11 +218,16 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
             })
           }
         }
-        
+
         // Remove from player hits
-        const updatedHits = { ...playerHits }
-        updatedHits[prevPlayer.id] = newHits
-        setPlayerHits(updatedHits)
+        setPlayerHits((current) => ({
+          ...current,
+          [prevPlayer.id]: (current[prevPlayer.id] || []).slice(0, -1),
+        }))
+        setLastVisitHits((current) => ({
+          ...current,
+          [prevPlayer.id]: newHits,
+        }))
       }
       return
     }
@@ -255,7 +271,7 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
   }
 
   const lastVisitHitsForTemplate = Object.fromEntries(
-    Object.entries(playerHits).map(([playerId, hits]) => [String(playerId), hits])
+    Object.entries(lastVisitHits).map(([playerId, hits]) => [String(playerId), hits])
   )
 
   const playerDataForTemplate = players.map((player) => ({
@@ -268,7 +284,7 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
   }))
 
   // Shanghai score buttons: target number variations + miss (no modifier buttons needed)
-  const shanghaiScoreButtons = targetNumber > 0 
+  const shanghaiScoreButtons = targetNumber > 0
     ? [targetNumber, `D${targetNumber}`, `T${targetNumber}`, 'miss' as const]
     : ['miss' as const]
 

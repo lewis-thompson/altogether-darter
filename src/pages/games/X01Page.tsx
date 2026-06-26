@@ -27,6 +27,12 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
   )
+  const [lastVisitHits, setLastVisitHits] = useState<Record<number, string[]>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
+  )
+  const [lastVisitScoreHistory, setLastVisitScoreHistory] = useState<Record<number, number[]>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: [startingScore] }), {})
+  )
   const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: startingScore }), {})
   )
@@ -105,16 +111,24 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
         ...playerHits,
         [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
       })
+      setLastVisitHits((current) => ({
+        ...current,
+        [currentPlayer.id]: newHits,
+      }))
+      setLastVisitScoreHistory((current) => ({
+        ...current,
+        [currentPlayer.id]: newScoreHistory,
+      }))
       setCurrentHits([])
       setVisitScoreHistory([startingScore])
-      
+
       // Reset all players' scores for the new leg
       const resetScores: Record<number, number> = {}
       players.forEach((p) => {
         resetScores[p.id] = startingScore
       })
       setPlayerScores(resetScores)
-      
+
       setLegsWon(newLegsWon)
       setVisitStartScore(startingScore)
 
@@ -125,7 +139,7 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
         newSetsWon[currentPlayer.id] = (newSetsWon[currentPlayer.id] || 0) + 1
 
         setSetsWon(newSetsWon)
-        
+
         // Check if player has won the game
         if (newSetsWon[currentPlayer.id] >= setsPerGame) {
           // Game over!
@@ -182,6 +196,14 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
         ...playerHits,
         [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
       })
+      setLastVisitHits((current) => ({
+        ...current,
+        [currentPlayer.id]: newHits,
+      }))
+      setLastVisitScoreHistory((current) => ({
+        ...current,
+        [currentPlayer.id]: newScoreHistory,
+      }))
       setCurrentHits([])
       setVisitScoreHistory([isBust ? visitStartScore : newScore])
       setVisitStartScore(isBust ? visitStartScore : newScore)
@@ -200,31 +222,44 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
       // If no hits in current visit, go back to previous player's last hit
       const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
       const prevPlayer = players[prevPlayerIndex]
-      const prevPlayerHits = playerHits[prevPlayer.id] || []
-      
+      const prevPlayerHits = lastVisitHits[prevPlayer.id] || []
+      const prevPlayerScoreHistory = lastVisitScoreHistory[prevPlayer.id] || [playerScores[prevPlayer.id] ?? startingScore]
+
       if (prevPlayerHits.length > 0) {
         // Go back to previous player
         setCurrentPlayerIndex(prevPlayerIndex)
-        
+        if (prevPlayerIndex > currentPlayerIndex) {
+          setCurrentRound((r) => Math.max(1, r - 1))
+        }
+
         // Set up the last visit minus one hit
-        const lastHitStr = prevPlayerHits[prevPlayerHits.length - 1]
         const newHits = prevPlayerHits.slice(0, -1)
+        const newScoreHistory = prevPlayerScoreHistory.slice(0, -1)
+        const restoredScore = newScoreHistory[newScoreHistory.length - 1] ?? (playerScores[prevPlayer.id] ?? startingScore)
+
         setCurrentHits(newHits)
-        
-        // Get the previous player's current score
-        const prevPlayerScore = playerScores[prevPlayer.id] ?? startingScore
-        const hitValue = getHitValue(lastHitStr as 'miss' | 'bull' | number, null)
-        const restoredScore = prevPlayerScore + hitValue
-        
+        setVisitScoreHistory(newScoreHistory.length > 0 ? newScoreHistory : [restoredScore])
+        setVisitStartScore(newScoreHistory[0] ?? restoredScore)
+        setSelectedModifier(null)
+
         setPlayerScores({
           ...playerScores,
           [prevPlayer.id]: restoredScore,
         })
-        
-        // Remove from player hits
-        const updatedHits = { ...playerHits }
-        updatedHits[prevPlayer.id] = newHits
-        setPlayerHits(updatedHits)
+
+        // Remove one hit from cumulative history and keep last completed visit in sync.
+        setPlayerHits((current) => ({
+          ...current,
+          [prevPlayer.id]: (current[prevPlayer.id] || []).slice(0, -1),
+        }))
+        setLastVisitHits((current) => ({
+          ...current,
+          [prevPlayer.id]: newHits,
+        }))
+        setLastVisitScoreHistory((current) => ({
+          ...current,
+          [prevPlayer.id]: newScoreHistory.length > 0 ? newScoreHistory : [restoredScore],
+        }))
       }
       return
     }
@@ -250,7 +285,7 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
   }
 
   const lastVisitHitsForTemplate = Object.fromEntries(
-    Object.entries(playerHits).map(([playerId, hits]) => [String(playerId), hits])
+    Object.entries(lastVisitHits).map(([playerId, hits]) => [String(playerId), hits])
   )
 
   const playerDataForTemplate = players.map((player) => ({

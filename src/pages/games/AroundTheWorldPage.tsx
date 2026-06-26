@@ -21,6 +21,9 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
   )
+  const [lastVisitHits, setLastVisitHits] = useState<Record<number, string[]>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
+  )
   const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: 1 }), {})
   )
@@ -77,6 +80,10 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
           ...playerHits,
           [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
         })
+        setLastVisitHits((current) => ({
+          ...current,
+          [currentPlayer.id]: newHits,
+        }))
         setCurrentHits([])
         setVisitScoreHistory([])
         setSelectedModifier(null)
@@ -127,6 +134,10 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
           ...playerHits,
           [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
         })
+        setLastVisitHits((current) => ({
+          ...current,
+          [currentPlayer.id]: newHits,
+        }))
         setCurrentHits([])
         setVisitScoreHistory([])
         setSelectedModifier(null)
@@ -146,33 +157,38 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
       // If no hits in current visit, go back to previous player's last hit
       const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
       const prevPlayer = players[prevPlayerIndex]
-      const prevPlayerHits = playerHits[prevPlayer.id] || []
-      
+      const prevPlayerHits = lastVisitHits[prevPlayer.id] || []
+
       if (prevPlayerHits.length > 0) {
         // Go back to previous player
         setCurrentPlayerIndex(prevPlayerIndex)
         if (prevPlayerIndex > currentPlayerIndex) {
           setCurrentRound((r) => Math.max(1, r - 1))
         }
-        
+
         // Set up the last visit minus one hit
         const newHits = prevPlayerHits.slice(0, -1)
         setCurrentHits(newHits)
-        
+
         // For simplicity, just reduce the score back one segment
         // In a full implementation, you'd track score history per player
         const currentScore = playerScores[prevPlayer.id] || 1
         const previousScore = currentScore === 1 ? 1 : currentScore - 1
-        
+
         setPlayerScores({
           ...playerScores,
           [prevPlayer.id]: previousScore,
         })
-        
+
         // Remove from player hits
-        const updatedHits = { ...playerHits }
-        updatedHits[prevPlayer.id] = newHits
-        setPlayerHits(updatedHits)
+        setPlayerHits((current) => ({
+          ...current,
+          [prevPlayer.id]: (current[prevPlayer.id] || []).slice(0, -1),
+        }))
+        setLastVisitHits((current) => ({
+          ...current,
+          [prevPlayer.id]: newHits,
+        }))
       }
       return
     }
@@ -198,7 +214,7 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
   }
 
   const lastVisitHitsForTemplate = Object.fromEntries(
-    Object.entries(playerHits).map(([playerId, hits]) => [String(playerId), hits])
+    Object.entries(lastVisitHits).map(([playerId, hits]) => [String(playerId), hits])
   )
 
   const playerDataForTemplate = players.map((player) => ({
@@ -212,7 +228,7 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
 
   // AroundTheWorld score buttons: target segment variations + miss (no modifier buttons needed)
   const targetSegment = getCurrentSegment(playerScores[currentPlayer.id] || 1)
-  const aroundTheWorldScoreButtons = typeof targetSegment === 'number' 
+  const aroundTheWorldScoreButtons = typeof targetSegment === 'number'
     ? [targetSegment, `D${targetSegment}`, `T${targetSegment}`, 'miss' as const]
     : ['bull' as const, 'miss' as const]
 

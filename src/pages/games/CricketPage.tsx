@@ -51,6 +51,9 @@ export function CricketPage({ players }: CricketProps) {
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
   )
+  const [lastVisitHits, setLastVisitHits] = useState<Record<number, string[]>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
+  )
 
   const currentPlayer = players[currentPlayerIndex]
 
@@ -183,6 +186,10 @@ export function CricketPage({ players }: CricketProps) {
         ...playerHits,
         [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
       })
+      setLastVisitHits((current) => ({
+        ...current,
+        [currentPlayer.id]: newHits,
+      }))
       setCurrentHits([])
 
       // Move to next player
@@ -217,27 +224,32 @@ export function CricketPage({ players }: CricketProps) {
       // If no hits in current visit, go back to previous player's last hit
       const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
       const prevPlayer = players[prevPlayerIndex]
-      const prevPlayerHits = playerHits[prevPlayer.id] || []
-      
+      const prevPlayerHits = lastVisitHits[prevPlayer.id] || []
+
       if (prevPlayerHits.length > 0) {
         // Go back to previous player
         setCurrentPlayerIndex(prevPlayerIndex)
         if (prevPlayerIndex > currentPlayerIndex) {
           setCurrentRound((r) => Math.max(1, r - 1))
         }
-        
+
         // Set up the last visit minus one hit
         const lastHitStr = prevPlayerHits[prevPlayerHits.length - 1]
         const newHits = prevPlayerHits.slice(0, -1)
         setCurrentHits(newHits)
-        
+
         // Undo the hit for that player
         undoSingleHit(prevPlayer.id, lastHitStr)
-        
+
         // Remove from player hits
-        const updatedHits = { ...playerHits }
-        updatedHits[prevPlayer.id] = newHits
-        setPlayerHits(updatedHits)
+        setPlayerHits((current) => ({
+          ...current,
+          [prevPlayer.id]: (current[prevPlayer.id] || []).slice(0, -1),
+        }))
+        setLastVisitHits((current) => ({
+          ...current,
+          [prevPlayer.id]: newHits,
+        }))
       }
       return
     }
@@ -416,6 +428,9 @@ export function CricketPage({ players }: CricketProps) {
       players={playerDataForTemplate}
       currentPlayerIndex={currentPlayerIndex}
       currentHits={currentHits}
+      lastVisitHits={Object.fromEntries(
+        Object.entries(lastVisitHits).map(([playerId, hits]) => [String(playerId), hits])
+      )}
       onAddScore={addHit}
       onRemoveLastHit={removeLastHit}
       onToggleModifier={toggleModifier}

@@ -20,6 +20,9 @@ export function DoublesPage({ players }: DoublesProps) {
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
   )
+  const [lastVisitHits, setLastVisitHits] = useState<Record<number, string[]>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
+  )
   const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
   )
@@ -95,6 +98,10 @@ export function DoublesPage({ players }: DoublesProps) {
         ...playerHits,
         [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
       })
+      setLastVisitHits((current) => ({
+        ...current,
+        [currentPlayer.id]: newHits,
+      }))
       setCurrentHits([])
 
       // Check if game over
@@ -133,20 +140,20 @@ export function DoublesPage({ players }: DoublesProps) {
       // If no hits in current visit, go back to previous player's last hit
       const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
       const prevPlayer = players[prevPlayerIndex]
-      const prevPlayerHits = playerHits[prevPlayer.id] || []
-      
+      const prevPlayerHits = lastVisitHits[prevPlayer.id] || []
+
       if (prevPlayerHits.length > 0) {
         // Go back to previous player
         setCurrentPlayerIndex(prevPlayerIndex)
         if (prevPlayerIndex > currentPlayerIndex) {
           setCurrentRound((r) => Math.max(1, r - 1))
         }
-        
+
         // Set up the last visit minus one hit
         const lastHitStr = prevPlayerHits[prevPlayerHits.length - 1]
         const newHits = prevPlayerHits.slice(0, -1)
         setCurrentHits(newHits)
-        
+
         // Undo the score
         const hitValue = getHitValue(lastHitStr, currentRound)
         if (hitValue > 0) {
@@ -155,11 +162,16 @@ export function DoublesPage({ players }: DoublesProps) {
             [prevPlayer.id]: Math.max(0, (playerScores[prevPlayer.id] || 0) - hitValue),
           })
         }
-        
+
         // Remove from player hits
-        const updatedHits = { ...playerHits }
-        updatedHits[prevPlayer.id] = newHits
-        setPlayerHits(updatedHits)
+        setPlayerHits((current) => ({
+          ...current,
+          [prevPlayer.id]: (current[prevPlayer.id] || []).slice(0, -1),
+        }))
+        setLastVisitHits((current) => ({
+          ...current,
+          [prevPlayer.id]: newHits,
+        }))
       }
       return
     }
@@ -188,7 +200,7 @@ export function DoublesPage({ players }: DoublesProps) {
   }
 
   const lastVisitHitsForTemplate = Object.fromEntries(
-    Object.entries(playerHits).map(([playerId, hits]) => [String(playerId), hits])
+    Object.entries(lastVisitHits).map(([playerId, hits]) => [String(playerId), hits])
   )
 
   const playerDataForTemplate = players.map((player) => ({
@@ -201,7 +213,7 @@ export function DoublesPage({ players }: DoublesProps) {
   }))
 
   // Doubles score buttons: target number variations + bull + miss (no modifier buttons needed)
-  const doublesScoreButtons = currentRound <= 20 
+  const doublesScoreButtons = currentRound <= 20
     ? [currentRound, `D${currentRound}`, 'miss' as const]
     : ['bull' as const, 'DB', 'miss' as const]
 

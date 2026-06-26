@@ -21,6 +21,9 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
   )
+  const [lastVisitHits, setLastVisitHits] = useState<Record<number, string[]>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
+  )
   const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
     players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
   )
@@ -33,7 +36,7 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
   )
   const [lastVisitScore, setLastVisitScore] = useState(0)
   const [visitScore, setVisitScore] = useState(0)
-  
+
   // Track last visit for undo functionality
   type VisitHistory = {
     playerId: number
@@ -140,7 +143,11 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
           ...playerHits,
           [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
         })
-        
+        setLastVisitHits((current) => ({
+          ...current,
+          [currentPlayer.id]: newHits,
+        }))
+
         // Track visit in history
         setVisitHistory([...visitHistory, {
           playerId: currentPlayer.id,
@@ -150,7 +157,7 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
           livesLost: !meetsThreshold && lastVisitScore > 0,
           killMade: !meetsThreshold && lastVisitScore > 0,
         }])
-        
+
         setCurrentHits([])
         setVisitScore(0)
         setLastVisitScore(visitScore)
@@ -197,7 +204,11 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
           ...playerHits,
           [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
         })
-        
+        setLastVisitHits((current) => ({
+          ...current,
+          [currentPlayer.id]: newHits,
+        }))
+
         // Track visit in history
         setVisitHistory([...visitHistory, {
           playerId: currentPlayer.id,
@@ -207,7 +218,7 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
           livesLost: !meetsThreshold && lastVisitScore > 0,
           killMade: !meetsThreshold && lastVisitScore > 0,
         }])
-        
+
         setCurrentHits([])
         setVisitScore(0)
         setLastVisitScore(totalScore)
@@ -258,7 +269,11 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
         ...playerHits,
         [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
       })
-      
+      setLastVisitHits((current) => ({
+        ...current,
+        [currentPlayer.id]: newHits,
+      }))
+
       // Track visit in history
       setVisitHistory([...visitHistory, {
         playerId: currentPlayer.id,
@@ -268,7 +283,7 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
         livesLost: !meetsThreshold && lastVisitScore > 0,
         killMade: !meetsThreshold && lastVisitScore > 0,
       }])
-      
+
       setCurrentHits([])
       setVisitScore(0)
       setLastVisitScore(totalVisitScore)
@@ -286,20 +301,20 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
       // If no hits in current visit, go back to previous player's last hit
       const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
       const prevPlayer = players[prevPlayerIndex]
-      const prevPlayerHits = playerHits[prevPlayer.id] || []
-      
+      const prevPlayerHits = lastVisitHits[prevPlayer.id] || []
+
       if (prevPlayerHits.length > 0) {
         // Go back to previous player
         setCurrentPlayerIndex(prevPlayerIndex)
         if (prevPlayerIndex > currentPlayerIndex) {
           setCurrentRound((r) => Math.max(1, r - 1))
         }
-        
+
         // Set up the last visit minus one hit
         const lastHitStr = prevPlayerHits[prevPlayerHits.length - 1]
         const newHits = prevPlayerHits.slice(0, -1)
         setCurrentHits(newHits)
-        
+
         // Undo the hit value
         let hitValue = 0
         if (lastHitStr === 'M') {
@@ -319,18 +334,23 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
             hitValue = baseValue
           }
         }
-        
+
         setPlayerScores({
           ...playerScores,
           [prevPlayer.id]: Math.max(0, (playerScores[prevPlayer.id] || 0) - hitValue),
         })
-        
+
         setVisitScore(Math.max(0, lastVisitScore - hitValue))
-        
+
         // Remove from player hits
-        const updatedHits = { ...playerHits }
-        updatedHits[prevPlayer.id] = newHits
-        setPlayerHits(updatedHits)
+        setPlayerHits((current) => ({
+          ...current,
+          [prevPlayer.id]: (current[prevPlayer.id] || []).slice(0, -1),
+        }))
+        setLastVisitHits((current) => ({
+          ...current,
+          [prevPlayer.id]: newHits,
+        }))
       }
       return
     }
@@ -338,7 +358,7 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
     if (currentHits.length > 0) {
       const removedHit = currentHits[currentHits.length - 1]
       setCurrentHits(currentHits.slice(0, -1))
-      
+
       // Also reduce visitScore based on the removed hit
       let hitValue = 0
       if (removedHit === 'M') {
@@ -365,51 +385,55 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
       const lastVisit = visitHistory[visitHistory.length - 1]
       const newHistory = visitHistory.slice(0, -1)
       setVisitHistory(newHistory)
-      
+
       // Restore the game state from before this visit
       const newPlayerHits = { ...playerHits }
       const newPlayerScores = { ...playerScores }
       const newPlayerLives = { ...playerLives }
       const newPlayerKills = { ...playerKills }
-      
+
       // Remove the hits from the player's record
       newPlayerHits[lastVisit.playerId] = (newPlayerHits[lastVisit.playerId] || []).slice(0, -(lastVisit.hits.length))
-      
+
       // Restore score (subtract what was added)
       newPlayerScores[lastVisit.playerId] = (newPlayerScores[lastVisit.playerId] || 0) - lastVisit.score
-      
+
       // Restore lives if they were lost
       if (lastVisit.livesLost) {
         newPlayerLives[lastVisit.playerId] = (newPlayerLives[lastVisit.playerId] || 0) + 1
       }
-      
+
       // Remove kill if it was made
       if (lastVisit.killMade) {
         const prevPlayerIdx = (players.findIndex(p => p.id === lastVisit.playerId) - 1 + players.length) % players.length
         newPlayerKills[players[prevPlayerIdx].id] = Math.max(0, (newPlayerKills[players[prevPlayerIdx].id] || 0) - 1)
       }
-      
+
       // Update states
       setPlayerHits(newPlayerHits)
+      setLastVisitHits((current) => ({
+        ...current,
+        [lastVisit.playerId]: (newPlayerHits[lastVisit.playerId] || []).slice(-3),
+      }))
       setPlayerScores(newPlayerScores)
       setPlayerLives(newPlayerLives)
       setPlayerKills(newPlayerKills)
-      
+
       // Go back to the previous player
       const previousPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
       setCurrentPlayerIndex(previousPlayerIndex)
-      
+
       // Restore the previous visit's score
       if (newHistory.length > 0) {
         setLastVisitScore(newHistory[newHistory.length - 1].score)
       } else {
         setLastVisitScore(0)
       }
-      
+
       // Reset current visit state
       setCurrentHits([])
       setVisitScore(0)
-      
+
       // Remove from elimination order if they were just eliminated
       if (lastVisit.livesLost && newPlayerLives[lastVisit.playerId] > 0) {
         setEliminationOrder(eliminationOrder.filter(id => id !== lastVisit.playerId))
@@ -426,7 +450,7 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
   }
 
   const lastVisitHitsForTemplate = Object.fromEntries(
-    Object.entries(playerHits).map(([playerId, hits]) => [String(playerId), hits])
+    Object.entries(lastVisitHits).map(([playerId, hits]) => [String(playerId), hits])
   )
 
   const playerDataForTemplate = players.map((player) => ({

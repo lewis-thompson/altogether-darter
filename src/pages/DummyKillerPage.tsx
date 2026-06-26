@@ -17,6 +17,9 @@ export function DummyKillerPage() {
   const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(
     initialPlayers.reduce((acc, p) => ({ ...acc, [p.id]: [] }), {})
   )
+  const [lastVisitHits, setLastVisitHits] = useState<Record<number, string[]>>(
+    initialPlayers.reduce((acc, p) => ({ ...acc, [p.id]: [] }), {})
+  )
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
   const [currentHits, setCurrentHits] = useState<string[]>([])
   const [currentRound, setCurrentRound] = useState(1)
@@ -43,6 +46,10 @@ export function DummyKillerPage() {
       const updatedHits = { ...playerHits }
       updatedHits[currentPlayer.id] = [...(updatedHits[currentPlayer.id] || []), ...newHits]
       setPlayerHits(updatedHits)
+      setLastVisitHits((current) => ({
+        ...current,
+        [currentPlayer.id]: newHits,
+      }))
 
       // Reset for next player
       setCurrentHits([])
@@ -59,8 +66,8 @@ export function DummyKillerPage() {
       // If no hits in current visit, go back to previous player's last hit
       const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
       const prevPlayer = players[prevPlayerIndex]
-      const prevPlayerHits = playerHits[prevPlayer.id] || []
-      
+      const prevPlayerHits = lastVisitHits[prevPlayer.id] || []
+
       if (prevPlayerHits.length > 0) {
         // Go back to previous player
         setCurrentPlayerIndex(prevPlayerIndex)
@@ -71,9 +78,14 @@ export function DummyKillerPage() {
         const newHits = prevPlayerHits.slice(0, -1)
         setCurrentHits(newHits)
         // Remove from player hits
-        const updatedHits = { ...playerHits }
-        updatedHits[prevPlayer.id] = newHits
-        setPlayerHits(updatedHits)
+        setPlayerHits((current) => ({
+          ...current,
+          [prevPlayer.id]: (current[prevPlayer.id] || []).slice(0, -1),
+        }))
+        setLastVisitHits((current) => ({
+          ...current,
+          [prevPlayer.id]: newHits,
+        }))
       }
     } else {
       setCurrentHits(currentHits.slice(0, -1))
@@ -106,6 +118,9 @@ export function DummyKillerPage() {
       players={templatePlayers}
       currentPlayerIndex={currentPlayerIndex}
       currentHits={currentHits}
+      lastVisitHits={Object.fromEntries(
+        Object.entries(lastVisitHits).map(([playerId, hits]) => [String(playerId), hits])
+      )}
       onAddScore={handleAddScore}
       onRemoveLastHit={handleRemoveLastHit}
       homeLink="/"

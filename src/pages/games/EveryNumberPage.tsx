@@ -39,7 +39,13 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
       return acc
     }, {} as Record<number, string[]>)
   )
-  
+  const [lastVisitHits, setLastVisitHits] = useState<Record<number, string[]>>(() =>
+    players.reduce((acc, player) => {
+      acc[player.id] = []
+      return acc
+    }, {} as Record<number, string[]>)
+  )
+
   const currentPlayer = players[currentPlayerIndex]
 
   function checkGameComplete(): boolean {
@@ -84,6 +90,10 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
           ...playerHits,
           [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
         })
+        setLastVisitHits((current) => ({
+          ...current,
+          [currentPlayer.id]: newHits,
+        }))
         setCurrentHits([])
 
         // Move to next player
@@ -117,6 +127,10 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
         ...playerHits,
         [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
       })
+      setLastVisitHits((current) => ({
+        ...current,
+        [currentPlayer.id]: newHits,
+      }))
 
       // Check if game complete
       if (checkGameComplete()) {
@@ -131,7 +145,7 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
           }, 0)
           return pScore > bestScore ? p : best
         })
-        
+
         navigate('/game-complete', {
           state: {
             winner,
@@ -167,20 +181,20 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
       // If no hits in current visit, go back to previous player's last hit
       const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
       const prevPlayer = players[prevPlayerIndex]
-      const prevPlayerHits = playerHits[prevPlayer.id] || []
-      
+      const prevPlayerHits = lastVisitHits[prevPlayer.id] || []
+
       if (prevPlayerHits.length > 0) {
         // Go back to previous player
         setCurrentPlayerIndex(prevPlayerIndex)
         if (prevPlayerIndex > currentPlayerIndex) {
           setCurrentRound((r) => Math.max(1, r - 1))
         }
-        
+
         // Set up the last visit minus one hit
         const lastHitStr = prevPlayerHits[prevPlayerHits.length - 1]
         const newHits = prevPlayerHits.slice(0, -1)
         setCurrentHits(newHits)
-        
+
         // Undo the hit count for this number
         let targetNum: number | null = null
         let hitPoints = 1
@@ -215,11 +229,16 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
           newPlayerNumberHits[prevPlayer.id][targetNum] = Math.max(0, previousCount)
           setPlayerNumberHits(newPlayerNumberHits)
         }
-        
+
         // Remove from player hits
-        const updatedHits = { ...playerHits }
-        updatedHits[prevPlayer.id] = newHits
-        setPlayerHits(updatedHits)
+        setPlayerHits((current) => ({
+          ...current,
+          [prevPlayer.id]: (current[prevPlayer.id] || []).slice(0, -1),
+        }))
+        setLastVisitHits((current) => ({
+          ...current,
+          [prevPlayer.id]: newHits,
+        }))
       }
       return
     }
@@ -256,7 +275,7 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
       const newPlayerNumberHits = { ...playerNumberHits }
       newPlayerNumberHits[currentPlayer.id] = { ...newPlayerNumberHits[currentPlayer.id] }
       const currentCount = newPlayerNumberHits[currentPlayer.id][targetNum] || 0
-      
+
       // Reverse the bounce-back logic
       let previousCount = currentCount - hitPoints
       if (previousCount < 0) {
@@ -330,6 +349,9 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
       players={playerDataForTemplate}
       currentPlayerIndex={currentPlayerIndex}
       currentHits={currentHits}
+      lastVisitHits={Object.fromEntries(
+        Object.entries(lastVisitHits).map(([playerId, hits]) => [String(playerId), hits])
+      )}
       onAddScore={addHit}
       onRemoveLastHit={removeLastHit}
       onToggleModifier={toggleModifier}
