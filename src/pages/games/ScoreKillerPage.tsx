@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks'
 import { GameTemplate } from '../GameTemplate'
@@ -48,50 +48,51 @@ export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProp
   }
   const [visitHistory, setVisitHistory] = useState<VisitHistory[]>([])
   const [eliminationOrder, setEliminationOrder] = useState<number[]>([])
+  const navGuard = useRef(false)
 
   const currentPlayer = players[currentPlayerIndex]
   const alivePlayers = players.filter((p) => playerLives[p.id] > 0)
 
-  // Check if game is complete
-  if (alivePlayers.length === 1 && Object.values(playerLives).some((lives) => lives === 0)) {
-    const winner = alivePlayers[0]
-    navigate('/game-complete', {
-      state: {
-        winner,
-        winnerPoints: playerScores[winner.id] || 0,
-        totalPlayers: players.length,
-        totalRounds: currentRound,
-        totalAttempts: Object.values(playerHits).flat().length,
-        totalHits: Object.values(playerHits).flat().filter((h) => h !== 'M').length,
-        totalMisses: Object.values(playerHits).flat().filter((h) => h === 'M').length,
-        bullseyeBuybackEnabled: false,
-        bullseyeRounds: null,
-        finalStandings: players
-          .map((p) => {
-            const isAlive = playerLives[p.id] > 0
-            return {
-              id: p.id,
-              name: p.name,
-              selectedNumber: null,
-              points: playerScores[p.id] || 0,
-              status: isAlive ? ('alive' as PlayerStatus) : ('dead' as PlayerStatus),
-            }
-          })
-          .sort((a, b) => {
-            const aAlive = a.status === 'alive'
-            const bAlive = b.status === 'alive'
-            // Winners first (still alive), then by elimination order (reverse)
-            if (aAlive && !bAlive) return -1
-            if (!aAlive && bAlive) return 1
-            if (aAlive && bAlive) return 0
-            // Both dead: earlier eliminated comes later in standings
-            const aElimIdx = eliminationOrder.indexOf(a.id)
-            const bElimIdx = eliminationOrder.indexOf(b.id)
-            return bElimIdx - aElimIdx
-          }),
-      },
-    })
-  }
+  // Navigate to game-complete when only one player remains
+  useEffect(() => {
+    if (navGuard.current) return
+    if (alivePlayers.length === 1 && Object.values(playerLives).some((lives) => lives === 0)) {
+      navGuard.current = true
+      const winner = alivePlayers[0]
+      const finalStandings = players
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          selectedNumber: null,
+          points: playerScores[p.id] || 0,
+          lives: playerLives[p.id] || 0,
+          kills: playerKills[p.id] || 0,
+          status: (playerLives[p.id] > 0 ? 'alive' : 'dead') as PlayerStatus,
+        }))
+        .sort((a, b) => {
+          if (a.status === 'alive' && b.status !== 'alive') return -1
+          if (b.status === 'alive' && a.status !== 'alive') return 1
+          const aElimIdx = eliminationOrder.indexOf(a.id)
+          const bElimIdx = eliminationOrder.indexOf(b.id)
+          return bElimIdx - aElimIdx
+        })
+      navigate('/game-complete', {
+        state: {
+          winner,
+          gameType: 'score-killer',
+          winnerPoints: playerScores[winner.id] || 0,
+          totalPlayers: players.length,
+          totalRounds: currentRound,
+          totalAttempts: Object.values(playerHits).flat().length,
+          totalHits: Object.values(playerHits).flat().filter((h) => h !== 'M').length,
+          totalMisses: Object.values(playerHits).flat().filter((h) => h === 'M').length,
+          bullseyeBuybackEnabled: false,
+          bullseyeRounds: null,
+          finalStandings,
+        },
+      })
+    }
+  }, [alivePlayers.length, playerLives])
 
   function getNumberValue(target: number): number {
     return target

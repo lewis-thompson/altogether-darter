@@ -150,6 +150,7 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
           navigate('/game-complete', {
             state: {
               winner: currentPlayer,
+              gameType: 'x01',
               winnerPoints: newSetsWon[currentPlayer.id],
               totalPlayers: players.length,
               totalRounds: currentRound,
@@ -158,6 +159,18 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
               totalMisses: newHits.filter((h) => h === 'M').length,
               bullseyeBuybackEnabled: false,
               bullseyeRounds: null,
+              finalStandings: [...players]
+                .sort((a, b) => (newSetsWon[b.id] || 0) - (newSetsWon[a.id] || 0))
+                .map((p, i) => ({
+                  id: p.id,
+                  name: p.name,
+                  selectedNumber: p.selectedNumber,
+                  position: i + 1,
+                  points: newSetsWon[p.id] || 0,
+                  legs: newLegsWon[p.id] || 0,
+                  remaining: playerScores[p.id] ?? startingScore,
+                  status: 'alive' as const,
+                })),
             },
           })
           return

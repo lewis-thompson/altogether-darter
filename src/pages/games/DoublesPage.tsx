@@ -132,6 +132,7 @@ export function DoublesPage({ players }: DoublesProps) {
         navigate('/game-complete', {
           state: {
             winner,
+            gameType: 'doubles',
             winnerPoints: playerScores[winner.id] || 0,
             totalPlayers: players.length,
             totalRounds: 21,
@@ -140,6 +141,16 @@ export function DoublesPage({ players }: DoublesProps) {
             totalMisses: newHits.filter((h) => h === 'M').length,
             bullseyeBuybackEnabled: false,
             bullseyeRounds: null,
+            finalStandings: [...players]
+              .sort((a, b) => (playerScores[b.id] || 0) - (playerScores[a.id] || 0))
+              .map((p, i) => ({
+                id: p.id,
+                name: p.name,
+                selectedNumber: p.selectedNumber,
+                position: i + 1,
+                points: playerScores[p.id] || 0,
+                status: 'alive' as const,
+              })),
           },
         })
         return

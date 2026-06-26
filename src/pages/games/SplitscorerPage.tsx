@@ -109,6 +109,7 @@ export function SplitscorerPage({ players }: SplitscoreProps) {
         navigate('/game-complete', {
           state: {
             winner,
+            gameType: 'splitscore',
             winnerPoints: playerScores[winner.id] || startingScore,
             totalPlayers: players.length,
             totalRounds: 9,
@@ -117,6 +118,16 @@ export function SplitscorerPage({ players }: SplitscoreProps) {
             totalMisses: newHits.filter((h) => h === 'M').length,
             bullseyeBuybackEnabled: false,
             bullseyeRounds: null,
+            finalStandings: [...players]
+              .sort((a, b) => (playerScores[b.id] || startingScore) - (playerScores[a.id] || startingScore))
+              .map((p, i) => ({
+                id: p.id,
+                name: p.name,
+                selectedNumber: p.selectedNumber,
+                position: i + 1,
+                points: playerScores[p.id] || startingScore,
+                status: 'alive' as const,
+              })),
           },
         })
         return

@@ -73,11 +73,16 @@ export function CricketPage({ players }: CricketProps) {
   }
 
   // Check if game is over and if so, who won
-  function getGameOverInfo(): { isOver: boolean; winner: Player | null } {
+  function getGameOverInfo(
+    latestNumberHits?: Record<number, Record<number, number>>
+  ): { isOver: boolean; winner: Player | null } {
+    const numberHits = latestNumberHits ?? playerNumberHits
+    function isOpenInState(playerId: number, number: number): boolean {
+      return (numberHits[playerId]?.[number] || 0) >= 3
+    }
     for (const player of players) {
-      const hasAllNumbersOpen = CRICKET_NUMBERS.every((num) => isNumberOpen(player.id, num))
+      const hasAllNumbersOpen = CRICKET_NUMBERS.every((num) => isOpenInState(player.id, num))
       if (hasAllNumbersOpen) {
-        // Check if this player has the most points
         const isWinner = players.every((p) => (playerScores[player.id] ?? 0) >= (playerScores[p.id] ?? 0))
         if (isWinner) {
           return { isOver: true, winner: player }
@@ -199,12 +204,24 @@ export function CricketPage({ players }: CricketProps) {
       }
       setCurrentPlayerIndex(nextPlayerIndex)
 
-      // Check if game is over
-      const gameOverInfo = getGameOverInfo()
+      // Check if game is over — pass latest number hits to avoid stale state
+      const gameOverInfo = getGameOverInfo(newPlayerNumberHits)
       if (gameOverInfo.isOver && gameOverInfo.winner) {
+        const finalStandings = [...players]
+          .sort((a, b) => (playerScores[b.id] ?? 0) - (playerScores[a.id] ?? 0))
+          .map((p, i) => ({
+            id: p.id,
+            name: p.name,
+            selectedNumber: p.selectedNumber,
+            position: i + 1,
+            points: playerScores[p.id] ?? 0,
+            status: 'alive' as const,
+            numbersOpen: CRICKET_NUMBERS.filter((num) => (newPlayerNumberHits[p.id]?.[num] || 0) >= 3).length,
+          }))
         navigate('/game-complete', {
           state: {
             winner: gameOverInfo.winner,
+            gameType: 'cricket',
             winnerPoints: playerScores[gameOverInfo.winner.id] || 0,
             totalPlayers: players.length,
             totalRounds: currentRound,
@@ -213,6 +230,7 @@ export function CricketPage({ players }: CricketProps) {
             totalMisses: newHits.filter((h) => h === 'M').length,
             bullseyeBuybackEnabled: false,
             bullseyeRounds: null,
+            finalStandings,
           },
         })
       }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks'
 import { GameTemplate } from '../GameTemplate'
@@ -47,11 +47,20 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
   )
 
   const currentPlayer = players[currentPlayerIndex]
+  const navGuard = useRef(false)
 
-  function checkGameComplete(): boolean {
+  function checkCompleteFromState(numberHits: Record<number, Record<number | string, number>>): boolean {
     return players.some((player) =>
-      allNumbers.every((num) => (playerNumberHits[player.id][num] || 0) >= hitsPerNumber)
+      allNumbers.every((num) => (numberHits[player.id][num] || 0) >= hitsPerNumber)
     )
+  }
+
+  function countCompletedNumbers(playerId: number, numberHits: Record<number, Record<number | string, number>>): number {
+    return allNumbers.filter((num) => (numberHits[playerId][num] || 0) >= hitsPerNumber).length
+  }
+
+  function totalDartsThrown(): number {
+    return Object.values(playerHits).flat().length
   }
 
   function getPointsForHit(modifier: 'double' | 'treble' | null): number {
@@ -117,49 +126,60 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
     newPlayerNumberHits[currentPlayer.id][targetNum] = calculateHitCount(currentCount, hitPoints)
 
     setPlayerNumberHits(newPlayerNumberHits)
-    setCurrentHits([...currentHits, hitStr])
+    const newCurrentHits = [...currentHits, hitStr]
+    setCurrentHits(newCurrentHits)
     setSelectedModifier(null)
 
-    if (currentHits.length === 2) {
-      // End of visit
-      const newHits = [...currentHits, hitStr]
+    // Check win after every dart, not just end of visit
+    const isComplete = checkCompleteFromState(newPlayerNumberHits)
+
+    if (newCurrentHits.length === 3 || isComplete) {
+      // End of visit (or early win)
+      const newHits = newCurrentHits
+      const cumulativeHits = [...(playerHits[currentPlayer.id] || []), ...newHits]
       setPlayerHits({
         ...playerHits,
-        [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
+        [currentPlayer.id]: cumulativeHits,
       })
       setLastVisitHits((current) => ({
         ...current,
         [currentPlayer.id]: newHits,
       }))
 
-      // Check if game complete
-      if (checkGameComplete()) {
-        const winner = players.reduce((best, p) => {
-          const bestScore = allNumbers.reduce((sum, num) => {
-            const hits = playerNumberHits[best.id][num] || 0
-            return sum + (hits >= hitsPerNumber ? 1 : 0)
-          }, 0)
-          const pScore = allNumbers.reduce((sum, num) => {
-            const hits = newPlayerNumberHits[p.id][num] || 0
-            return sum + (hits >= hitsPerNumber ? 1 : 0)
-          }, 0)
-          return pScore > bestScore ? p : best
-        })
+      if (isComplete && !navGuard.current) {
+        navGuard.current = true
+        const totalDarts = totalDartsThrown() + newHits.length
+        const finalStandings = players
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            selectedNumber: p.selectedNumber,
+            position: 0,
+            completedNumbers: countCompletedNumbers(p.id, newPlayerNumberHits),
+            totalDarts: (playerHits[p.id] || []).length + (p.id === currentPlayer.id ? newHits.length : 0),
+            status: 'alive' as const,
+            points: countCompletedNumbers(p.id, newPlayerNumberHits),
+          }))
+          .sort((a, b) => b.completedNumbers - a.completedNumbers)
+          .map((p, i) => ({ ...p, position: i + 1 }))
+
+        const winner = players.find((p) =>
+          allNumbers.every((num) => (newPlayerNumberHits[p.id][num] || 0) >= hitsPerNumber)
+        ) ?? currentPlayer
 
         navigate('/game-complete', {
           state: {
             winner,
-            winnerPoints: allNumbers.reduce((sum, num) => {
-              const hits = newPlayerNumberHits[winner.id][num] || 0
-              return sum + (hits >= hitsPerNumber ? 1 : 0)
-            }, 0),
+            gameType: 'every-number',
+            winnerPoints: countCompletedNumbers(winner.id, newPlayerNumberHits),
             totalPlayers: players.length,
             totalRounds: currentRound,
-            totalAttempts: Object.values(playerHits).flat().length + newHits.length,
-            totalHits: newHits.filter((h) => h !== 'M').length,
-            totalMisses: newHits.filter((h) => h === 'M').length,
+            totalAttempts: totalDarts,
+            totalHits: totalDarts - Object.values(playerHits).flat().filter((h) => h === 'M').length,
+            totalMisses: Object.values(playerHits).flat().filter((h) => h === 'M').length,
             bullseyeBuybackEnabled: false,
             bullseyeRounds: null,
+            finalStandings,
           },
         })
         return

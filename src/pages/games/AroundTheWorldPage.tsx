@@ -111,14 +111,26 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
           navigate('/game-complete', {
             state: {
               winner: currentPlayer,
+              gameType: 'around-the-world',
               winnerPoints: newScore,
               totalPlayers: players.length,
               totalRounds: currentRound,
               totalAttempts: Object.values(playerHits).flat().length + newHits.length,
-              totalHits: newHits.filter((h) => h !== 'miss').length,
-              totalMisses: newHits.filter((h) => h === 'miss').length,
+              totalHits: newHits.filter((h) => h !== 'M').length,
+              totalMisses: newHits.filter((h) => h === 'M').length,
               bullseyeBuybackEnabled: false,
               bullseyeRounds: null,
+              finalStandings: [...players]
+                .sort((a, b) => (playerScores[b.id] || 0) - (playerScores[a.id] || 0))
+                .map((p, i) => ({
+                  id: p.id,
+                  name: p.name,
+                  selectedNumber: p.selectedNumber,
+                  position: i + 1,
+                  points: playerScores[p.id] || 0,
+                  segment: getCurrentSegment(playerScores[p.id] || 0),
+                  status: 'alive' as const,
+                })),
             },
           })
           return

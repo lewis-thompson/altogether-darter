@@ -115,6 +115,7 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
       navigate('/game-complete', {
         state: {
           winner: currentPlayer,
+          gameType: 'shanghai',
           winnerPoints: playerScores[currentPlayer.id] || 0,
           totalPlayers: players.length,
           totalRounds: currentRound,
@@ -123,6 +124,16 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
           totalMisses: newHits.filter((h) => h === 'M').length,
           bullseyeBuybackEnabled: false,
           bullseyeRounds: null,
+          finalStandings: [...players]
+            .sort((a, b) => (playerScores[b.id] || 0) - (playerScores[a.id] || 0))
+            .map((p, i) => ({
+              id: p.id,
+              name: p.name,
+              selectedNumber: p.selectedNumber,
+              position: i + 1,
+              points: playerScores[p.id] || 0,
+              status: 'alive' as const,
+            })),
         },
       })
       return
@@ -149,6 +160,7 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
         navigate('/game-complete', {
           state: {
             winner,
+            gameType: 'shanghai',
             winnerPoints: playerScores[winner.id] || 0,
             totalPlayers: players.length,
             totalRounds: 20,
@@ -157,6 +169,16 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
             totalMisses: newHits.filter((h) => h === 'M').length,
             bullseyeBuybackEnabled: false,
             bullseyeRounds: null,
+            finalStandings: [...players]
+              .sort((a, b) => (playerScores[b.id] || 0) - (playerScores[a.id] || 0))
+              .map((p, i) => ({
+                id: p.id,
+                name: p.name,
+                selectedNumber: p.selectedNumber,
+                position: i + 1,
+                points: playerScores[p.id] || 0,
+                status: 'alive' as const,
+              })),
           },
         })
         return

@@ -99,9 +99,6 @@ export function HomePage() {
         <Link className="page-button" to="/statistics">
           Statistics
         </Link>
-        <Link className="page-button" to="/dummy-killer">
-          Test Dummy Killer
-        </Link>
       </div>
 
       <section className="quick-test-section">
@@ -159,34 +156,34 @@ export function CreateGamePage() {
   const [gameType, setGameType] = useState('killer')
   const [playerName, setPlayerName] = useState('')
   const [players, setPlayers] = useState<Player[]>([])
-  
+
   // Killer-specific
   const [bullseyeBuyback, setBullseyeBuyback] = useState(false)
   const [bullseyeRounds, setBullseyeRounds] = useState<number | ''>(1)
   const [killerThreshold, setKillerThreshold] = useState<number | ''>(5)
-  
+
   // Every Number-specific
   const [hitsPerNumber, setHitsPerNumber] = useState<number | ''>(3)
   const [includeBullseye, setIncludeBullseye] = useState(true)
-  
+
   // Score Killer-specific
   const [livesPerPlayer, setLivesPerPlayer] = useState<number | ''>(3)
-  
+
   // X01-specific
   const [x01Value, setX01Value] = useState<number | ''>(501)
   const [legsPerSet, setLegsPerSet] = useState<number | ''>(3)
   const [setsPerGame, setSetsPerGame] = useState<number | ''>(3)
   const [doubleIn, setDoubleIn] = useState(false)
   const [doubleOut, setDoubleOut] = useState(true)
-  
+
   // Cricket-specific
   const [cricketNumberCount, setCricketNumberCount] = useState<number | ''>(7)
   const [hitsToOpen, setHitsToOpen] = useState<number | ''>(3)
-  
+
   // Shanghai-specific
   const [shanghaiNumberCount, setShanghaiNumberCount] = useState<number | ''>(3)
   const [shanghaiScoringMode, setShanghaiScoringMode] = useState<'points' | 'numeric'>('points')
-  
+
   // Around The World-specific
   const [atw3PointBull, setAtw3PointBull] = useState(true)
   const [atwReplayOnHit, setAtwReplayOnHit] = useState(false)
@@ -220,7 +217,7 @@ export function CreateGamePage() {
     const available = [...numbers]
     for (let i = available.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1))
-      ;[available[i], available[j]] = [available[j], available[i]]
+        ;[available[i], available[j]] = [available[j], available[i]]
     }
 
     setPlayers((current) =>
@@ -234,28 +231,28 @@ export function CreateGamePage() {
   // Validation logic
   const requiresPlayerNumbers = ['killer']
   const requiresMinPlayers = ['killer', 'score-killer', 'cricket']
-  
+
   const needsPlayerNumbers = requiresPlayerNumbers.includes(gameType)
   const needsMinPlayersCheck = requiresMinPlayers.includes(gameType)
   const minPlayersRequired = needsMinPlayersCheck ? 2 : 1
-  
+
   const isEachPlayerSelected = needsPlayerNumbers
     ? players.every((player) => player.selectedNumber !== null)
     : true
-    
+
   const isUniqueSelection = needsPlayerNumbers
     ? players.length ===
-      new Set(
-        players
-          .map((player) => player.selectedNumber)
-          .filter((value): value is number => value !== null),
-      ).size
+    new Set(
+      players
+        .map((player) => player.selectedNumber)
+        .filter((value): value is number => value !== null),
+    ).size
     : true
 
   // Game-specific validation
   let gameSpecificValid = true
   let validationMessage = ''
-  
+
   if (players.length < minPlayersRequired) {
     validationMessage = `Add at least ${minPlayersRequired} player${minPlayersRequired > 1 ? 's' : ''}.`
   } else if (!isEachPlayerSelected) {
@@ -299,7 +296,7 @@ export function CreateGamePage() {
       gameSpecificValid = false
     }
   }
-  
+
   const canStartGame =
     players.length >= minPlayersRequired &&
     players.length <= 20 &&
@@ -316,7 +313,7 @@ export function CreateGamePage() {
 
     // Route to appropriate game page based on game type
     let route = '/killer'
-    
+
     switch (gameType) {
       case 'killer':
         gameState.bullseyeBuyback = bullseyeBuyback
@@ -437,11 +434,11 @@ export function CreateGamePage() {
             {players.map((player) => {
               const otherSelectedNumbers = needsPlayerNumbers
                 ? new Set(
-                    players
-                      .filter((other) => other.id !== player.id)
-                      .map((other) => other.selectedNumber)
-                      .filter((value): value is number => value !== null),
-                  )
+                  players
+                    .filter((other) => other.id !== player.id)
+                    .map((other) => other.selectedNumber)
+                    .filter((value): value is number => value !== null),
+                )
                 : new Set()
               return (
                 <li key={player.id} className="player-item">
@@ -813,43 +810,86 @@ export function GameCompletePage() {
     )
   }
 
+  const accuracy =
+    state.totalAttempts > 0
+      ? Math.round((state.totalHits / state.totalAttempts) * 100)
+      : 0
+
+  function renderStandingExtra(player: GameCompleteState['finalStandings'][number]): string {
+    const p = player as Record<string, unknown>
+    const gameType = (state as GameCompleteState & { gameType?: string }).gameType
+
+    if (gameType === 'every-number') {
+      const completed = typeof p.completedNumbers === 'number' ? p.completedNumbers : p.points
+      const darts = typeof p.totalDarts === 'number' ? p.totalDarts : '—'
+      return `${completed} numbers · ${darts} darts`
+    }
+    if (gameType === 'cricket') {
+      const open = typeof p.numbersOpen === 'number' ? p.numbersOpen : '—'
+      return `${p.points ?? 0} pts · ${open}/7 numbers`
+    }
+    if (gameType === 'score-killer') {
+      return `${p.points ?? 0} pts · ${p.lives ?? 0} lives · ${p.kills ?? 0} kills`
+    }
+    if (gameType === 'killer') {
+      const status = player.status
+      const label = status === 'alive' ? 'Winner' : status === 'out-recovery' ? 'Recovery' : status === 'dead-buyback' ? 'Dead (buyback)' : 'Dead'
+      return `${p.points ?? 0} pts · ${label}`
+    }
+    if (gameType === 'x01') {
+      return `${p.points ?? 0} sets · ${p.legs ?? 0} legs`
+    }
+    if (gameType === 'around-the-world') {
+      return `Segment ${p.segment ?? p.points}`
+    }
+    return `${p.points ?? 0} pts`
+  }
+
+  const standings = state.finalStandings ?? []
+
   return (
     <PageLayout title="Game Complete">
       <section className="game-header">
         <div className="summary-row">
-          <strong>Winner</strong>
+          <strong>🏆 Winner</strong>
           <span>{state.winner.name}</span>
         </div>
         <div className="summary-row">
-          <strong>Final points</strong>
-          <span>{state.winnerPoints}</span>
-        </div>
-        <div className="summary-row">
-          <strong>Rounds</strong>
+          <strong>Rounds played</strong>
           <span>{state.totalRounds}</span>
         </div>
         <div className="summary-row">
-          <strong>Total hits</strong>
+          <strong>Darts thrown</strong>
+          <span>{state.totalAttempts}</span>
+        </div>
+        <div className="summary-row">
+          <strong>Hits</strong>
           <span>{state.totalHits}</span>
         </div>
         <div className="summary-row">
           <strong>Misses</strong>
           <span>{state.totalMisses}</span>
         </div>
+        <div className="summary-row">
+          <strong>Accuracy</strong>
+          <span>{accuracy}%</span>
+        </div>
       </section>
 
-      <section className="players-section">
-        <h2>Final standings</h2>
-        <ul className="summary-list">
-          {state.finalStandings.map((playerItem) => (
-            <li key={playerItem.id} className="history-item">
-              <span>{playerItem.name}</span>
-              <span>{playerItem.status === 'alive' ? 'Winner' : playerItem.status === 'dead-buyback' ? 'Dead (buyback)' : 'Dead'}</span>
-              <span>{playerItem.points} pts</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {standings.length > 0 && (
+        <section className="players-section">
+          <h2>Final standings</h2>
+          <ul className="summary-list">
+            {standings.map((playerItem, index) => (
+              <li key={playerItem.id} className={`history-item${index === 0 ? ' winner' : ''}`}>
+                <span className="standing-position">{index + 1}.</span>
+                <span className="standing-name">{playerItem.name}</span>
+                <span className="standing-detail">{renderStandingExtra(playerItem)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="actions-row">
         <button className="page-button" type="button" onClick={() => navigate('/')}>Back Home</button>
