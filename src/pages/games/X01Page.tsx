@@ -50,9 +50,13 @@ export function X01Page({ players, startingScore, legsPerSet = 3, setsPerGame = 
 
   // Update visitStartScore whenever we switch to a new player
   useEffect(() => {
+    if (!currentPlayer) {
+      return
+    }
+
     const playerScore = playerScores[currentPlayer.id] ?? startingScore
     setVisitStartScore(playerScore)
-  }, [currentPlayerIndex, currentPlayer, playerScores])
+  }, [currentPlayerIndex, currentPlayer?.id, startingScore])
 
   function getHitValue(target: 'miss' | 'bull' | number, modifier: 'double' | 'treble' | null): number {
     if (target === 'miss') return 0

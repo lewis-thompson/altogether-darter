@@ -87,10 +87,11 @@ export function GameTemplate({
     if (typeof value === 'number') return value
     if (value === 'bull' || value === 'miss') return value
     if (typeof value === 'string') {
-      // For dart notation, extract the number
+      if (value === 'DB') return 'bull'
+      // Keep dart notation intact so game pages can apply exact intended modifier.
       if (value.startsWith('D') || value.startsWith('T') || value.startsWith('S')) {
         const num = parseInt(value.slice(1), 10)
-        return num
+        return Number.isNaN(num) ? 'miss' : num
       }
       return value as 'miss' | 'bull'
     }
@@ -101,25 +102,24 @@ export function GameTemplate({
     // Handle custom button formats like "D20", "T20", "S20"
     if (typeof rawValue === 'string' && (rawValue.startsWith('D') || rawValue.startsWith('T') || rawValue.startsWith('S'))) {
       const prefix = rawValue[0]
-      const numberStr = rawValue.slice(1)
-      const num = parseInt(numberStr, 10)
-      
-      // Set the appropriate modifier
+
+      // Keep UI state aligned with quick custom buttons.
       if (prefix === 'D') {
         setIsModifierActive('double')
-        onToggleModifier?.('double')
       } else if (prefix === 'T') {
         setIsModifierActive('treble')
-        onToggleModifier?.('treble')
       } else if (prefix === 'S') {
         setIsModifierActive(null)
       }
-      
-      // Call onAddScore with the number
-      onAddScore(num)
+
+      // Pass the full prefixed value so pages can score it exactly now.
+      onAddScore(rawValue as unknown as 'miss' | 'bull' | number)
     } else {
       // Regular button (number, 'bull', or 'miss')
       setIsModifierActive(null)
+      if (selectedModifier) {
+        onToggleModifier?.(selectedModifier)
+      }
       const buttonValue = getButtonValue(rawValue)
       onAddScore(buttonValue)
     }
@@ -257,9 +257,8 @@ export function GameTemplate({
             return (
               <button
                 key={String(value)}
-                className={`template-score-button${
-                  isModifierActive && typeof buttonValue === 'number' ? ' modifier-active' : ''
-                }`}
+                className={`template-score-button${isModifierActive && typeof buttonValue === 'number' ? ' modifier-active' : ''
+                  }`}
                 onClick={() => {
                   handleScoreClick(value)
                 }}

@@ -56,28 +56,47 @@ export function DoublesPage({ players }: DoublesProps) {
     return 0
   }
 
-  function addHit(target: 'miss' | 'bull' | number) {
+  function addHit(target: 'miss' | 'bull' | number | string) {
     if (currentHits.length >= 3) return
     if (currentRound > 21) return // Game over
+
+    let normalizedTarget: 'miss' | 'bull' | number = target as 'miss' | 'bull' | number
+    let inputModifier: 'double' | 'treble' | null = selectedModifier
+
+    if (typeof target === 'string' && target !== 'miss' && target !== 'bull') {
+      if (target === 'DB') {
+        normalizedTarget = 'bull'
+        inputModifier = 'double'
+      } else if (target.startsWith('D')) {
+        normalizedTarget = parseInt(target.slice(1), 10)
+        inputModifier = 'double'
+      } else if (target.startsWith('T')) {
+        normalizedTarget = parseInt(target.slice(1), 10)
+        inputModifier = 'treble'
+      } else if (target.startsWith('S')) {
+        normalizedTarget = parseInt(target.slice(1), 10)
+        inputModifier = null
+      }
+    }
 
     let hitStr = ''
     let isOnTarget = false
     let hitValue = 0
 
-    if (target === 'miss') {
+    if (normalizedTarget === 'miss') {
       hitStr = 'M'
       isOnTarget = false
       hitValue = 0
-    } else if (target === 'bull') {
+    } else if (normalizedTarget === 'bull') {
       hitStr = currentRound === 21 ? 'DB' : 'SB'
       isOnTarget = currentRound === 21
       hitValue = isOnTarget ? 1 : 0
-    } else if (currentRound <= 20 && target === targetNumber && selectedModifier === 'double') {
-      hitStr = `D${target}`
+    } else if (currentRound <= 20 && normalizedTarget === targetNumber && inputModifier === 'double') {
+      hitStr = `D${normalizedTarget}`
       isOnTarget = true
       hitValue = 1
     } else {
-      hitStr = formatHit(target, selectedModifier)
+      hitStr = formatHit(normalizedTarget, inputModifier)
     }
 
     const newHits = [...currentHits, hitStr]
@@ -214,8 +233,8 @@ export function DoublesPage({ players }: DoublesProps) {
 
   // Doubles score buttons: target number variations + bull + miss (no modifier buttons needed)
   const doublesScoreButtons = currentRound <= 20
-    ? [currentRound, `D${currentRound}`, 'miss' as const]
-    : ['bull' as const, 'DB', 'miss' as const]
+    ? [`D${currentRound}`, 'miss' as const]
+    : ['DB', 'miss' as const]
 
   return (
     <GameTemplate

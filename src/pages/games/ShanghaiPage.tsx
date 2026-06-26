@@ -44,31 +44,47 @@ export function ShanghaiPage({ players }: ShanghaiProps) {
     return String(target)
   }
 
-  function addHit(target: 'miss' | 'bull' | number) {
+  function addHit(target: 'miss' | 'bull' | number | string) {
     if (currentHits.length >= 3) return
     if (targetNumber < 1) return // Game over
+
+    let normalizedTarget: 'miss' | 'bull' | number = target as 'miss' | 'bull' | number
+    let inputModifier: 'double' | 'treble' | null = selectedModifier
+
+    if (typeof target === 'string' && target !== 'miss' && target !== 'bull') {
+      if (target.startsWith('D')) {
+        normalizedTarget = parseInt(target.slice(1), 10)
+        inputModifier = 'double'
+      } else if (target.startsWith('T')) {
+        normalizedTarget = parseInt(target.slice(1), 10)
+        inputModifier = 'treble'
+      } else if (target.startsWith('S')) {
+        normalizedTarget = parseInt(target.slice(1), 10)
+        inputModifier = null
+      }
+    }
 
     let hitStr = ''
     let isOnTarget = false
     let hitValue = 0
 
-    if (target === 'miss') {
+    if (normalizedTarget === 'miss') {
       hitStr = 'M'
       isOnTarget = false
       hitValue = 0
-    } else if (target === 'bull') {
+    } else if (normalizedTarget === 'bull') {
       hitStr = 'SB'
       isOnTarget = false
       hitValue = 0
-    } else if (target === targetNumber) {
-      if (selectedModifier === 'double') hitValue = target * 2
-      else if (selectedModifier === 'treble') hitValue = target * 3
-      else hitValue = target
+    } else if (normalizedTarget === targetNumber) {
+      if (inputModifier === 'double') hitValue = normalizedTarget * 2
+      else if (inputModifier === 'treble') hitValue = normalizedTarget * 3
+      else hitValue = normalizedTarget
 
       isOnTarget = true
-      hitStr = formatHit(target, selectedModifier)
+      hitStr = formatHit(normalizedTarget, inputModifier)
     } else {
-      hitStr = formatHit(target, selectedModifier)
+      hitStr = formatHit(normalizedTarget, inputModifier)
     }
 
     const newHits = [...currentHits, hitStr]

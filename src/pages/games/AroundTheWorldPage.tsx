@@ -36,8 +36,25 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
     return 'B' // Inner bull (bullseye)
   }
 
-  function addHit(target: 'miss' | 'bull' | number) {
+  function addHit(target: 'miss' | 'bull' | number | string) {
     if (currentHits.length >= 3) return
+
+    let normalizedTarget: 'miss' | 'bull' | number = target as 'miss' | 'bull' | number
+    let inputModifier: 'double' | 'treble' | null = selectedModifier
+
+    if (typeof target === 'string' && target !== 'miss' && target !== 'bull') {
+      if (target.startsWith('D')) {
+        inputModifier = 'double'
+        normalizedTarget = parseInt(target.slice(1), 10)
+      } else if (target.startsWith('T')) {
+        inputModifier = 'treble'
+        normalizedTarget = parseInt(target.slice(1), 10)
+      } else if (target.startsWith('S')) {
+        inputModifier = null
+        normalizedTarget = parseInt(target.slice(1), 10)
+      }
+    }
+
     const currentScore = playerScores[currentPlayer.id] || 1
     const darts = currentHits.length
 
@@ -47,20 +64,20 @@ export function AroundTheWorldPage({ players }: AroundTheWorldProps) {
     let segmentsAdvanced = 0
     let displayHit = ''
 
-    if (target === 'miss') {
+    if (normalizedTarget === 'miss') {
       hitMatches = false
       displayHit = 'M'
       segmentsAdvanced = 0
-    } else if (target === 'bull') {
+    } else if (normalizedTarget === 'bull') {
       hitMatches = targetSegment === 'OB' || targetSegment === 'B'
       displayHit = 'SB'
       segmentsAdvanced = 1
-    } else if (typeof targetSegment === 'number' && target === targetSegment) {
+    } else if (typeof targetSegment === 'number' && normalizedTarget === targetSegment) {
       hitMatches = true
-      segmentsAdvanced = selectedModifier === 'double' ? 2 : selectedModifier === 'treble' ? 3 : 1
-      displayHit = `${selectedModifier === 'double' ? 'D' : selectedModifier === 'treble' ? 'T' : 'S'}${target}`
+      segmentsAdvanced = inputModifier === 'double' ? 2 : inputModifier === 'treble' ? 3 : 1
+      displayHit = `${inputModifier === 'double' ? 'D' : inputModifier === 'treble' ? 'T' : 'S'}${normalizedTarget}`
     } else {
-      displayHit = String(target)
+      displayHit = String(normalizedTarget)
     }
 
     if (hitMatches) {
