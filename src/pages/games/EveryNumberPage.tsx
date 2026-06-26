@@ -10,6 +10,38 @@ interface EveryNumberProps {
   includeBullseye?: boolean
 }
 
+const DARTBOARD_ORDER = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5]
+
+function polarToCartesian(cx: number, cy: number, radius: number, angleDeg: number) {
+  const angleRad = (angleDeg - 90) * (Math.PI / 180)
+  return {
+    x: cx + radius * Math.cos(angleRad),
+    y: cy + radius * Math.sin(angleRad),
+  }
+}
+
+function ringSegmentPath(
+  cx: number,
+  cy: number,
+  innerRadius: number,
+  outerRadius: number,
+  startAngle: number,
+  endAngle: number
+) {
+  const outerStart = polarToCartesian(cx, cy, outerRadius, startAngle)
+  const outerEnd = polarToCartesian(cx, cy, outerRadius, endAngle)
+  const innerEnd = polarToCartesian(cx, cy, innerRadius, endAngle)
+  const innerStart = polarToCartesian(cx, cy, innerRadius, startAngle)
+
+  return [
+    `M ${outerStart.x} ${outerStart.y}`,
+    `A ${outerRadius} ${outerRadius} 0 0 1 ${outerEnd.x} ${outerEnd.y}`,
+    `L ${innerEnd.x} ${innerEnd.y}`,
+    `A ${innerRadius} ${innerRadius} 0 0 0 ${innerStart.x} ${innerStart.y}`,
+    'Z',
+  ].join(' ')
+}
+
 export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3, includeBullseye: includeBullseyeProp = true }: EveryNumberProps) {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -84,6 +116,129 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
 
   function isNumberComplete(totalHits: number): boolean {
     return totalHits === hitsPerNumber
+  }
+
+  function renderDartboardProgress(playerId: number) {
+    const cx = 140
+    const cy = 140
+    const sweep = 360 / 20
+
+    const colors = {
+      base: '#111111',
+      missStroke: '#2d2d2d',
+      red: '#c62828',
+      green: '#2e7d32',
+      text: '#f5f5f5',
+      boardRim: '#2d2d2d',
+    }
+
+    const rBullInner = 12
+    const rBullOuter = 24
+    const rInnerSingleInner = rBullOuter
+    const rInnerSingleOuter = 62
+    const rTrebleInner = 62
+    const rTrebleOuter = 72
+    const rOuterSingleInner = 72
+    const rOuterSingleOuter = 102
+    const rDoubleInner = 102
+    const rDoubleOuter = 114
+    const rLabel = 129
+
+    const completed = countCompletedNumbers(playerId, playerNumberHits)
+    const totalTargets = allNumbers.length
+
+    return (
+      <div style={{ padding: '10px 12px' }}>
+        <svg
+          viewBox="0 0 280 280"
+          width="100%"
+          style={{ maxWidth: '300px', display: 'block', margin: '0 auto', overflow: 'visible' }}
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <circle cx={cx} cy={cy} r={120} fill={colors.base} stroke={colors.boardRim} strokeWidth={2} />
+
+          {DARTBOARD_ORDER.map((num, index) => {
+            const startAngle = index * sweep
+            const endAngle = (index + 1) * sweep
+            const hits = Number(playerNumberHits[playerId]?.[num] || 0)
+            const color = hits >= 3 ? colors.green : colors.red
+
+            return (
+              <g key={num}>
+                <path
+                  d={ringSegmentPath(cx, cy, rInnerSingleInner, rInnerSingleOuter, startAngle, endAngle)}
+                  fill={hits >= 1 ? color : colors.base}
+                  stroke={colors.missStroke}
+                  strokeWidth={0.8}
+                />
+                <path
+                  d={ringSegmentPath(cx, cy, rTrebleInner, rTrebleOuter, startAngle, endAngle)}
+                  fill={hits >= 3 ? colors.green : colors.base}
+                  stroke={colors.missStroke}
+                  strokeWidth={0.8}
+                />
+                <path
+                  d={ringSegmentPath(cx, cy, rOuterSingleInner, rOuterSingleOuter, startAngle, endAngle)}
+                  fill={hits >= 2 ? color : colors.base}
+                  stroke={colors.missStroke}
+                  strokeWidth={0.8}
+                />
+                <path
+                  d={ringSegmentPath(cx, cy, rDoubleInner, rDoubleOuter, startAngle, endAngle)}
+                  fill={hits >= 3 ? colors.green : colors.base}
+                  stroke={colors.missStroke}
+                  strokeWidth={0.8}
+                />
+                <text
+                  x={polarToCartesian(cx, cy, rLabel, startAngle + sweep / 2).x}
+                  y={polarToCartesian(cx, cy, rLabel, startAngle + sweep / 2).y}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="#1a1a1a"
+                  stroke="#ffffff"
+                  strokeWidth="0.6"
+                  paintOrder="stroke"
+                  fontSize="11"
+                  fontWeight="700"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {num}
+                </text>
+              </g>
+            )
+          })}
+
+          {includeBullseye ? (
+            <>
+              <circle
+                cx={cx}
+                cy={cy}
+                r={rBullOuter}
+                fill={(playerNumberHits[playerId]?.[0] || 0) >= 3 ? colors.green : (playerNumberHits[playerId]?.[0] || 0) >= 1 ? colors.red : colors.base}
+                stroke={colors.missStroke}
+                strokeWidth={1}
+              />
+              <circle
+                cx={cx}
+                cy={cy}
+                r={rBullInner}
+                fill={(playerNumberHits[playerId]?.[0] || 0) >= 3 ? colors.green : (playerNumberHits[playerId]?.[0] || 0) >= 2 ? colors.red : colors.base}
+                stroke={colors.missStroke}
+                strokeWidth={1}
+              />
+            </>
+          ) : (
+            <>
+              <circle cx={cx} cy={cy} r={rBullOuter} fill={colors.base} stroke={colors.missStroke} strokeWidth={1} />
+              <circle cx={cx} cy={cy} r={rBullInner} fill={colors.base} stroke={colors.missStroke} strokeWidth={1} />
+            </>
+          )}
+        </svg>
+        <div style={{ marginTop: '8px', fontSize: '12px', color: '#666', textAlign: 'center', fontWeight: 600 }}>
+          Complete: {completed}/{totalTargets}
+        </div>
+      </div>
+    )
   }
 
   function addHit(target: 'miss' | 'bull' | number) {
@@ -324,37 +479,41 @@ export function EveryNumberPage({ players, hitsPerNumber: hitsPerNumberProp = 3,
     additionalData: {},
   }))
 
-  const renderPlayerCard = (player: any) => (
+  const renderPlayerCard = (player: { id: string; name: string }) => (
     <>
       <div className="template-player-header">
         <span className="template-player-name">{player.name}</span>
       </div>
-      <div style={{ padding: '12px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(45px, 1fr))', gap: '6px' }}>
-          {allNumbers.map((num) => {
-            const hits = playerNumberHits[player.id]?.[num] || 0
-            const displayHits = getDisplayHits(hits)
-            const isComplete = isNumberComplete(hits)
-            return (
-              <div
-                key={num}
-                style={{
-                  padding: '8px',
-                  backgroundColor: isComplete ? '#d4edda' : '#f0f0f0',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  textAlign: 'center',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                }}
-              >
-                <div>{num === 0 ? 'B' : num}</div>
-                <div style={{ fontSize: '10px', marginTop: '2px', color: '#666' }}>{displayHits}</div>
-              </div>
-            )
-          })}
+      {hitsPerNumber === 3 ? (
+        renderDartboardProgress(Number(player.id))
+      ) : (
+        <div style={{ padding: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(45px, 1fr))', gap: '6px' }}>
+            {allNumbers.map((num) => {
+              const hits = playerNumberHits[player.id]?.[num] || 0
+              const displayHits = getDisplayHits(hits)
+              const isComplete = isNumberComplete(hits)
+              return (
+                <div
+                  key={num}
+                  style={{
+                    padding: '8px',
+                    backgroundColor: isComplete ? '#d4edda' : '#f0f0f0',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    textAlign: 'center',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                  }}
+                >
+                  <div>{num === 0 ? 'B' : num}</div>
+                  <div style={{ fontSize: '10px', marginTop: '2px', color: '#666' }}>{displayHits}</div>
+                </div>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </>
   )
 
