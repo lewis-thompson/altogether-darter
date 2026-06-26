@@ -1,0 +1,491 @@
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../hooks'
+import { GameTemplate } from '../GameTemplate'
+import type { Player, PlayerStatus } from '../../types'
+
+interface ScoreKillerProps {
+  players: Player[]
+  livesPerPlayer?: number
+}
+
+export function ScoreKillerPage({ players, livesPerPlayer = 3 }: ScoreKillerProps) {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+
+  const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
+  const [currentRound, setCurrentRound] = useState(1)
+  const [selectedModifier, setSelectedModifier] = useState<'double' | 'treble' | null>(null)
+  const [currentHits, setCurrentHits] = useState<string[]>([])
+
+  const [playerHits, setPlayerHits] = useState<Record<number, string[]>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
+  )
+  const [lastVisitHits, setLastVisitHits] = useState<Record<number, string[]>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: [] }), {})
+  )
+  const [playerScores, setPlayerScores] = useState<Record<number, number>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
+  )
+
+  const [playerLives, setPlayerLives] = useState<Record<number, number>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: livesPerPlayer }), {})
+  )
+  const [playerKills, setPlayerKills] = useState<Record<number, number>>(() =>
+    players.reduce((acc, player) => ({ ...acc, [player.id]: 0 }), {})
+  )
+  const [lastVisitScore, setLastVisitScore] = useState(0)
+  const [visitScore, setVisitScore] = useState(0)
+
+  // Track last visit for undo functionality
+  type VisitHistory = {
+    playerId: number
+    hits: string[]
+    score: number
+    meetsThreshold: boolean
+    livesLost: boolean
+    killMade: boolean
+  }
+  const [visitHistory, setVisitHistory] = useState<VisitHistory[]>([])
+  const [eliminationOrder, setEliminationOrder] = useState<number[]>([])
+  const navGuard = useRef(false)
+
+  const currentPlayer = players[currentPlayerIndex]
+  const alivePlayers = players.filter((p) => playerLives[p.id] > 0)
+
+  // Navigate to game-complete when only one player remains
+  useEffect(() => {
+    if (navGuard.current) return
+    if (alivePlayers.length === 1 && Object.values(playerLives).some((lives) => lives === 0)) {
+      navGuard.current = true
+      const winner = alivePlayers[0]
+      const finalStandings = players
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          selectedNumber: null,
+          points: playerScores[p.id] || 0,
+          lives: playerLives[p.id] || 0,
+          kills: playerKills[p.id] || 0,
+          status: (playerLives[p.id] > 0 ? 'alive' : 'dead') as PlayerStatus,
+        }))
+        .sort((a, b) => {
+          if (a.status === 'alive' && b.status !== 'alive') return -1
+          if (b.status === 'alive' && a.status !== 'alive') return 1
+          const aElimIdx = eliminationOrder.indexOf(a.id)
+          const bElimIdx = eliminationOrder.indexOf(b.id)
+          return bElimIdx - aElimIdx
+        })
+      navigate('/game-complete', {
+        state: {
+          winner,
+          gameType: 'score-killer',
+          winnerPoints: playerScores[winner.id] || 0,
+          totalPlayers: players.length,
+          totalRounds: currentRound,
+          totalAttempts: Object.values(playerHits).flat().length,
+          totalHits: Object.values(playerHits).flat().filter((h) => h !== 'M').length,
+          totalMisses: Object.values(playerHits).flat().filter((h) => h === 'M').length,
+          bullseyeBuybackEnabled: false,
+          bullseyeRounds: null,
+          finalStandings,
+        },
+      })
+    }
+  }, [alivePlayers.length, playerLives])
+
+  function getNumberValue(target: number): number {
+    return target
+  }
+
+  function findNextEligiblePlayer(startIndex: number, currentLives: Record<number, number>): number {
+    // Find the next player with lives > 0
+    let nextIndex = (startIndex + 1) % players.length
+    let attempts = 0
+    while (attempts < players.length && currentLives[players[nextIndex].id] <= 0) {
+      nextIndex = (nextIndex + 1) % players.length
+      attempts++
+    }
+    // If all players are out, just return the next index anyway (game should end)
+    return nextIndex
+  }
+
+  function addHit(target: 'miss' | 'bull' | number) {
+    if (currentHits.length >= 3 || playerLives[currentPlayer.id] <= 0) return
+
+    if (target === 'miss') {
+      const newHits = [...currentHits, 'M']
+      setCurrentHits(newHits)
+      setSelectedModifier(null)
+
+      if (currentHits.length === 2) {
+        // End of visit - check if meets threshold
+        const meetsThreshold = visitScore >= lastVisitScore
+        const newLives = { ...playerLives }
+        const newScores = { ...playerScores }
+
+        if (!meetsThreshold && lastVisitScore > 0) {
+          // Lose a life
+          newLives[currentPlayer.id] = (newLives[currentPlayer.id] || 0) - 1
+          // Track kill for the player with lastVisitScore (the killer)
+          const previousPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+          const prevPlayer = players[previousPlayerIndex]
+          setPlayerKills(prev => ({ ...prev, [prevPlayer.id]: (prev[prevPlayer.id] || 0) + 1 }))
+          // Track elimination if lives reach 0
+          if (newLives[currentPlayer.id] === 0 && !eliminationOrder.includes(currentPlayer.id)) {
+            setEliminationOrder([...eliminationOrder, currentPlayer.id])
+          }
+        }
+
+        newScores[currentPlayer.id] = (newScores[currentPlayer.id] || 0) + visitScore
+        setPlayerLives(newLives)
+        setPlayerScores(newScores)
+        setPlayerHits({
+          ...playerHits,
+          [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
+        })
+        setLastVisitHits((current) => ({
+          ...current,
+          [currentPlayer.id]: newHits,
+        }))
+
+        // Track visit in history
+        setVisitHistory([...visitHistory, {
+          playerId: currentPlayer.id,
+          hits: newHits,
+          score: visitScore,
+          meetsThreshold,
+          livesLost: !meetsThreshold && lastVisitScore > 0,
+          killMade: !meetsThreshold && lastVisitScore > 0,
+        }])
+
+        setCurrentHits([])
+        setVisitScore(0)
+        setLastVisitScore(visitScore)
+
+        // Move to next eligible player (skip those with 0 lives)
+        const nextPlayerIndex = findNextEligiblePlayer(currentPlayerIndex, newLives)
+        if (nextPlayerIndex === 0) {
+          setCurrentRound((r) => r + 1)
+        }
+        setCurrentPlayerIndex(nextPlayerIndex)
+      }
+      return
+    }
+
+    if (target === 'bull') {
+      const points = selectedModifier === 'double' ? 50 : 25
+      const newHits = [...currentHits, (selectedModifier === 'double' ? 'DB' : 'SB')]
+      setCurrentHits(newHits)
+      setVisitScore(visitScore + points)
+      setSelectedModifier(null)
+
+      if (currentHits.length === 2) {
+        // End of visit
+        const meetsThreshold = visitScore + points >= lastVisitScore
+        const newLives = { ...playerLives }
+        const newScores = { ...playerScores }
+
+        if (!meetsThreshold && lastVisitScore > 0) {
+          newLives[currentPlayer.id] = (newLives[currentPlayer.id] || 0) - 1
+          const previousPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+          const prevPlayer = players[previousPlayerIndex]
+          setPlayerKills(prev => ({ ...prev, [prevPlayer.id]: (prev[prevPlayer.id] || 0) + 1 }))
+          // Track elimination if lives reach 0
+          if (newLives[currentPlayer.id] === 0 && !eliminationOrder.includes(currentPlayer.id)) {
+            setEliminationOrder([...eliminationOrder, currentPlayer.id])
+          }
+        }
+
+        const totalScore = visitScore + points
+        newScores[currentPlayer.id] = (newScores[currentPlayer.id] || 0) + totalScore
+        setPlayerLives(newLives)
+        setPlayerScores(newScores)
+        setPlayerHits({
+          ...playerHits,
+          [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
+        })
+        setLastVisitHits((current) => ({
+          ...current,
+          [currentPlayer.id]: newHits,
+        }))
+
+        // Track visit in history
+        setVisitHistory([...visitHistory, {
+          playerId: currentPlayer.id,
+          hits: newHits,
+          score: totalScore,
+          meetsThreshold: visitScore + points >= lastVisitScore,
+          livesLost: !meetsThreshold && lastVisitScore > 0,
+          killMade: !meetsThreshold && lastVisitScore > 0,
+        }])
+
+        setCurrentHits([])
+        setVisitScore(0)
+        setLastVisitScore(totalScore)
+
+        const nextPlayerIndex = findNextEligiblePlayer(currentPlayerIndex, newLives)
+        if (nextPlayerIndex === 0) {
+          setCurrentRound((r) => r + 1)
+        }
+        setCurrentPlayerIndex(nextPlayerIndex)
+      }
+      return
+    }
+
+    // Regular number hit
+    let points = getNumberValue(target)
+    let modifier = selectedModifier || 'single'
+    if (selectedModifier === 'double') points *= 2
+    if (selectedModifier === 'treble') points *= 3
+    const hitStr = `${modifier === 'double' ? 'D' : modifier === 'treble' ? 'T' : ''}${target}`
+    const newHits = [...currentHits, hitStr]
+
+    setCurrentHits(newHits)
+    setVisitScore(visitScore + points)
+    setSelectedModifier(null)
+
+    if (currentHits.length === 2) {
+      // End of visit
+      const totalVisitScore = visitScore + points
+      const meetsThreshold = totalVisitScore >= lastVisitScore
+      const newLives = { ...playerLives }
+      const newScores = { ...playerScores }
+
+      if (!meetsThreshold && lastVisitScore > 0) {
+        newLives[currentPlayer.id] = (newLives[currentPlayer.id] || 0) - 1
+        const previousPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+        const prevPlayer = players[previousPlayerIndex]
+        setPlayerKills(prev => ({ ...prev, [prevPlayer.id]: (prev[prevPlayer.id] || 0) + 1 }))
+        // Track elimination if lives reach 0
+        if (newLives[currentPlayer.id] === 0 && !eliminationOrder.includes(currentPlayer.id)) {
+          setEliminationOrder([...eliminationOrder, currentPlayer.id])
+        }
+      }
+
+      newScores[currentPlayer.id] = (newScores[currentPlayer.id] || 0) + totalVisitScore
+      setPlayerLives(newLives)
+      setPlayerScores(newScores)
+      setPlayerHits({
+        ...playerHits,
+        [currentPlayer.id]: [...(playerHits[currentPlayer.id] || []), ...newHits],
+      })
+      setLastVisitHits((current) => ({
+        ...current,
+        [currentPlayer.id]: newHits,
+      }))
+
+      // Track visit in history
+      setVisitHistory([...visitHistory, {
+        playerId: currentPlayer.id,
+        hits: newHits,
+        score: totalVisitScore,
+        meetsThreshold,
+        livesLost: !meetsThreshold && lastVisitScore > 0,
+        killMade: !meetsThreshold && lastVisitScore > 0,
+      }])
+
+      setCurrentHits([])
+      setVisitScore(0)
+      setLastVisitScore(totalVisitScore)
+
+      const nextPlayerIndex = findNextEligiblePlayer(currentPlayerIndex, newLives)
+      if (nextPlayerIndex === 0) {
+        setCurrentRound((r) => r + 1)
+      }
+      setCurrentPlayerIndex(nextPlayerIndex)
+    }
+  }
+
+  function removeLastHit() {
+    if (currentHits.length === 0) {
+      // If no hits in current visit, go back to previous player's last hit
+      const prevPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+      const prevPlayer = players[prevPlayerIndex]
+      const prevPlayerHits = lastVisitHits[prevPlayer.id] || []
+
+      if (prevPlayerHits.length > 0) {
+        // Go back to previous player
+        setCurrentPlayerIndex(prevPlayerIndex)
+        if (prevPlayerIndex > currentPlayerIndex) {
+          setCurrentRound((r) => Math.max(1, r - 1))
+        }
+
+        // Set up the last visit minus one hit
+        const lastHitStr = prevPlayerHits[prevPlayerHits.length - 1]
+        const newHits = prevPlayerHits.slice(0, -1)
+        setCurrentHits(newHits)
+
+        // Undo the hit value
+        let hitValue = 0
+        if (lastHitStr === 'M') {
+          hitValue = 0
+        } else if (lastHitStr === 'SB') {
+          hitValue = 25
+        } else if (lastHitStr === 'DB') {
+          hitValue = 50
+        } else {
+          const numberStr = lastHitStr.replace(/[DT]/g, '')
+          const baseValue = parseInt(numberStr, 10)
+          if (lastHitStr.startsWith('D')) {
+            hitValue = baseValue * 2
+          } else if (lastHitStr.startsWith('T')) {
+            hitValue = baseValue * 3
+          } else {
+            hitValue = baseValue
+          }
+        }
+
+        setPlayerScores({
+          ...playerScores,
+          [prevPlayer.id]: Math.max(0, (playerScores[prevPlayer.id] || 0) - hitValue),
+        })
+
+        setVisitScore(Math.max(0, lastVisitScore - hitValue))
+
+        // Remove from player hits
+        setPlayerHits((current) => ({
+          ...current,
+          [prevPlayer.id]: (current[prevPlayer.id] || []).slice(0, -1),
+        }))
+        setLastVisitHits((current) => ({
+          ...current,
+          [prevPlayer.id]: newHits,
+        }))
+      }
+      return
+    }
+
+    if (currentHits.length > 0) {
+      const removedHit = currentHits[currentHits.length - 1]
+      setCurrentHits(currentHits.slice(0, -1))
+
+      // Also reduce visitScore based on the removed hit
+      let hitValue = 0
+      if (removedHit === 'M') {
+        hitValue = 0
+      } else if (removedHit === 'SB') {
+        hitValue = 25
+      } else if (removedHit === 'DB') {
+        hitValue = 50
+      } else {
+        // Parse the hit (e.g., "D20", "T15", "10")
+        const numberStr = removedHit.replace(/[DT]/g, '')
+        const baseValue = parseInt(numberStr, 10)
+        if (removedHit.startsWith('D')) {
+          hitValue = baseValue * 2
+        } else if (removedHit.startsWith('T')) {
+          hitValue = baseValue * 3
+        } else {
+          hitValue = baseValue
+        }
+      }
+      setVisitScore(Math.max(0, visitScore - hitValue))
+    } else if (visitHistory.length > 0) {
+      // Undo the last visit
+      const lastVisit = visitHistory[visitHistory.length - 1]
+      const newHistory = visitHistory.slice(0, -1)
+      setVisitHistory(newHistory)
+
+      // Restore the game state from before this visit
+      const newPlayerHits = { ...playerHits }
+      const newPlayerScores = { ...playerScores }
+      const newPlayerLives = { ...playerLives }
+      const newPlayerKills = { ...playerKills }
+
+      // Remove the hits from the player's record
+      newPlayerHits[lastVisit.playerId] = (newPlayerHits[lastVisit.playerId] || []).slice(0, -(lastVisit.hits.length))
+
+      // Restore score (subtract what was added)
+      newPlayerScores[lastVisit.playerId] = (newPlayerScores[lastVisit.playerId] || 0) - lastVisit.score
+
+      // Restore lives if they were lost
+      if (lastVisit.livesLost) {
+        newPlayerLives[lastVisit.playerId] = (newPlayerLives[lastVisit.playerId] || 0) + 1
+      }
+
+      // Remove kill if it was made
+      if (lastVisit.killMade) {
+        const prevPlayerIdx = (players.findIndex(p => p.id === lastVisit.playerId) - 1 + players.length) % players.length
+        newPlayerKills[players[prevPlayerIdx].id] = Math.max(0, (newPlayerKills[players[prevPlayerIdx].id] || 0) - 1)
+      }
+
+      // Update states
+      setPlayerHits(newPlayerHits)
+      setLastVisitHits((current) => ({
+        ...current,
+        [lastVisit.playerId]: (newPlayerHits[lastVisit.playerId] || []).slice(-3),
+      }))
+      setPlayerScores(newPlayerScores)
+      setPlayerLives(newPlayerLives)
+      setPlayerKills(newPlayerKills)
+
+      // Go back to the previous player
+      const previousPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length
+      setCurrentPlayerIndex(previousPlayerIndex)
+
+      // Restore the previous visit's score
+      if (newHistory.length > 0) {
+        setLastVisitScore(newHistory[newHistory.length - 1].score)
+      } else {
+        setLastVisitScore(0)
+      }
+
+      // Reset current visit state
+      setCurrentHits([])
+      setVisitScore(0)
+
+      // Remove from elimination order if they were just eliminated
+      if (lastVisit.livesLost && newPlayerLives[lastVisit.playerId] > 0) {
+        setEliminationOrder(eliminationOrder.filter(id => id !== lastVisit.playerId))
+      }
+    }
+  }
+
+  function toggleModifier(modifier: 'double' | 'treble') {
+    setSelectedModifier((current) => (current === modifier ? null : modifier))
+  }
+
+  if (!user || !currentPlayer) {
+    return <div>Loading...</div>
+  }
+
+  const lastVisitHitsForTemplate = Object.fromEntries(
+    Object.entries(lastVisitHits).map(([playerId, hits]) => [String(playerId), hits])
+  )
+
+  const playerDataForTemplate = players.map((player) => ({
+    id: String(player.id),
+    name: player.name,
+    hits: currentPlayerIndex === players.indexOf(player) ? currentHits : [],
+    additionalData: {
+      Lives: (playerLives[player.id] || 0).toString(),
+      Kills: (playerKills[player.id] || 0).toString(),
+      Status: (playerLives[player.id] || 0) > 0 ? 'In' : 'Out',
+    },
+  }))
+
+  return (
+    <GameTemplate
+      headerConfig={{
+        title: 'Score Killer',
+        currentPlayer: currentPlayer.name,
+        round: currentRound,
+        stats: [
+          {
+            label: 'Score to beat',
+            value: lastVisitScore === 0 ? '—' : lastVisitScore,
+          },
+        ],
+      }}
+      players={playerDataForTemplate}
+      currentPlayerIndex={currentPlayerIndex}
+      currentHits={currentHits}
+      lastVisitHits={lastVisitHitsForTemplate}
+      onAddScore={addHit}
+      onRemoveLastHit={removeLastHit}
+      onToggleModifier={toggleModifier}
+      selectedModifier={selectedModifier}
+    />
+  )
+}
